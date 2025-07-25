@@ -20,31 +20,31 @@ const WorldMap = () => {
         southAmerica: {
             name: 'South America',
             bounds: { x: 200, y: 280, width: 150, height: 200 },
-            countries: ['BRA', 'ARG', 'CHL', 'COL', 'PER'],
+            countries: ['BRA', 'ARG', 'CHL', 'COL', 'PER', 'URY', 'PRY', 'BOL', 'ECU', 'VEN'],
             color: '#4ecdc4'
         },
         europe: {
             name: 'Europe',
             bounds: { x: 430, y: 120, width: 80, height: 80 },
-            countries: ['DEU', 'FRA', 'GBR', 'ITA', 'ESP'],
+            countries: ['DEU', 'FRA', 'GBR', 'ITA', 'ESP', 'NLD', 'BEL', 'CHE', 'AUT', 'SWE'],
             color: '#45b7d1'
         },
         africa: {
             name: 'Africa',
             bounds: { x: 450, y: 200, width: 120, height: 250 },
-            countries: ['ZAF', 'NGA', 'EGY', 'KEN', 'ETH'],
+            countries: ['ZAF', 'NGA', 'EGY', 'KEN', 'ETH', 'GHA', 'UGA', 'TZA', 'MOZ', 'AGO'],
             color: '#f9ca24'
         },
         asia: {
             name: 'Asia',
             bounds: { x: 520, y: 80, width: 200, height: 200 },
-            countries: ['CHN', 'IND', 'JPN', 'RUS', 'KOR'],
+            countries: ['CHN', 'IND', 'JPN', 'RUS', 'KOR', 'THA', 'VNM', 'IDN', 'MYS', 'SGP'],
             color: '#a55eea'
         },
         oceania: {
             name: 'Oceania',
             bounds: { x: 650, y: 380, width: 100, height: 80 },
-            countries: ['AUS', 'NZL', 'PNG', 'FJI'],
+            countries: ['AUS', 'NZL', 'PNG', 'FJI', 'NCL', 'SLB'],
             color: '#26de81'
         }
     };
@@ -70,7 +70,24 @@ const WorldMap = () => {
         'ITA': { name: 'Italy', x: 490, y: 170 },
         'ESP': { name: 'Spain', x: 440, y: 170 },
         'KOR': { name: 'South Korea', x: 720, y: 190 },
-        'NZL': { name: 'New Zeeland', x: 750, y: 450 }
+        'NZL': { name: 'New Zeeland', x: 750, y: 450 },
+        'CHL': { name: 'Chile', x: 270, y: 400 },
+        'COL': { name: 'Colombia', x: 250, y: 320 },
+        'PER': { name: 'Peru', x: 250, y: 360 },
+        'THA': { name: 'Thailand', x: 620, y: 270 },
+        'VNM': { name: 'Vietnam', x: 630, y: 260 },
+        'IDN': { name: 'Indonesia', x: 660, y: 320 },
+        'MYS': { name: 'Malaysia', x: 640, y: 300 },
+        'SGP': { name: 'Singapore', x: 640, y: 310 },
+        'NLD': { name: 'Netherlands', x: 470, y: 145 },
+        'BEL': { name: 'Belgium', x: 470, y: 150 },
+        'CHE': { name: 'Switzerland', x: 480, y: 155 },
+        'AUT': { name: 'Austria', x: 490, y: 155 },
+        'SWE': { name: 'Sweden', x: 490, y: 130 },
+        'GHA': { name: 'Ghana', x: 460, y: 310 },
+        'ETH': { name: 'Ethiopia', x: 550, y: 310 },
+        'UGA': { name: 'Uganda', x: 540, y: 320 },
+        'TZA': { name: 'Tanzania', x: 545, y: 340 }
     };
 
     const indicators = {
