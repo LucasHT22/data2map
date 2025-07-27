@@ -156,10 +156,15 @@ const WorldMap = () => {
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
-        const normalizedLng = ((lng + 180) % 360) / 360;
+        const normalizedLng = (lng + 180) / 360;
         const x = normalizedLng * canvasWidth;
-        const normalizedLat = (90 - lat) / 180;
-        const y = normalizedLat * canvasHeight;
+        const latRad = lat * Math.PI / 180;
+        const mercatorY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+        const maxMercatorY = Math.log(Math.tan(Math.PI / 4 + 85 * Math.PI / 180 / 2));
+        const minMercatorY = -maxMercatorY;
+        const normalizedLat = (mercatorY - minMercatorY) / (maxMercatorY - minMercatorY);
+        const y = (1 - normalizedLat) * canvasHeight;
+        
         return { x, y };
     };
 
@@ -258,8 +263,8 @@ const WorldMap = () => {
         Object.entries(countryCoordinates).forEach(([code, coord]) => {
             const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
             
-            if (canvasCoord.x >= 0 && canvasCoord.x <= width && 
-                canvasCoord.y >= 0 && canvasCoord.y <= height) {
+            if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && 
+                canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
                 
                 ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
                 ctx.strokeStyle = '#666';
@@ -356,8 +361,9 @@ const WorldMap = () => {
             
             if (coord && item.value !== null && !isNaN(item.value)) {
                 const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
-                if (canvasCoord.x >= 0 && canvasCoord.x <= ctx.canvas.width && 
-                    canvasCoord.y >= 0 && canvasCoord.y <= ctx.canvas.height) {
+                
+                if (canvasCoord.x >= -15 && canvasCoord.x <= ctx.canvas.width + 15 && 
+                    canvasCoord.y >= -15 && canvasCoord.y <= ctx.canvas.height + 15) {
                     
                     const normalized = (item.value - min) / (max - min);
                     const intensity = Math.floor(normalized * 255);
@@ -370,13 +376,11 @@ const WorldMap = () => {
                     ctx.arc(canvasCoord.x, canvasCoord.y, 12, 0, 2 * Math.PI);
                     ctx.fill();
                     ctx.stroke();
-                    
                     const labelWidth = 60;
                     const labelHeight = 15;
-                    const labelX = Math.max(0, Math.min(canvasCoord.x - labelWidth/2, ctx.canvas.width - labelWidth));
-                    const labelY1 = Math.max(0, canvasCoord.y - 30);
-                    const labelY2 = Math.min(ctx.canvas.height - labelHeight, canvasCoord.y + 15);
-                    
+                    const labelX = Math.max(5, Math.min(canvasCoord.x - labelWidth/2, ctx.canvas.width - labelWidth - 5));
+                    const labelY1 = Math.max(5, canvasCoord.y - 30);
+                    const labelY2 = Math.min(ctx.canvas.height - labelHeight - 5, canvasCoord.y + 15);
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.fillRect(labelX, labelY1, labelWidth, labelHeight);
                     ctx.fillRect(labelX, labelY2, labelWidth, labelHeight);
