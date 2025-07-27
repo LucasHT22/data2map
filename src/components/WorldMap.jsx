@@ -156,10 +156,10 @@ const WorldMap = () => {
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
-        const x = ((lng + 180) / 360) * canvasWidth;
-        const latRad = lat * Math.PI / 180;
-        const mercN = Math.log(Math.tan((Math.PI / 4) + (latRad / 2)));
-        const y = (canvasHeight / 2) - (canvasWidth * mercN / (2 * Math.PI));
+        const normalizedLng = ((lng + 180) % 360) / 360;
+        const x = normalizedLng * canvasWidth;
+        const normalizedLat = (90 - lat) / 180;
+        const y = normalizedLat * canvasHeight;
         return { x, y };
     };
 
@@ -167,16 +167,16 @@ const WorldMap = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const zoom = 2;
+        const zoom = 1;
         const tileSize = 256;
-        const tilesX = Math.ceil(canvas.width / tileSize) + 1;
-        const tilesY = Math.ceil(canvas.height / tileSize) + 1;
+        const worldWidthTiles = Math.pow(2, zoom);
+        const worldHeightTiles = Math.pow(2, zoom);
 
         const tiles = {};
         const promises = [];
 
-        for (let x = 0; x < tilesX; x++) {
-            for (let y = 0; y < tilesY; y++) {
+        for (let x = 0; x < worldWidthTiles; x++) {
+            for (let y = 0; y < worldHeightTiles; y++) {
                 const tileUrl = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
                 const promise = new Promise((resolve) => {
                     const img = new Image();
@@ -236,33 +236,39 @@ const WorldMap = () => {
         const ctx = canvas.getContext('2d');
         const { width, height } = canvas;
 
-                ctx.fillStyle = '#4a90e2';
+        ctx.fillStyle = '#4a90e2';
         ctx.fillRect(0, 0, width, height);
 
         if (tilesLoaded && Object.keys(mapTiles).length > 0) {
             const tileSize = 256;
-            const zoom = 2;
-            const offsetX = 0;
-            const offsetY = 0;
+            const zoom = 1;
+            const worldWidthTiles = Math.pow(2, zoom);
+            const worldHeightTiles = Math.pow(2, zoom);
+            const tileDisplayWidth = width / worldWidthTiles;
+            const tileDisplayHeight = height / worldHeightTiles;
 
             Object.entries(mapTiles).forEach(([key, img]) => {
                 const [x, y] = key.split('-').map(Number);
                 ctx.globalAlpha = 0.7;
-                ctx.drawImage(img, x * tileSize + offsetX, y * tileSize + offsetY, tileSize, tileSize);
+                ctx.drawImage(img, x * tileDisplayWidth, y * tileDisplayHeight, tileDisplayWidth, tileDisplayHeight);
                 ctx.globalAlpha = 1.0;
             });
         }
 
-                Object.entries(countryCoordinates).forEach(([code, coord]) => {
+        Object.entries(countryCoordinates).forEach(([code, coord]) => {
             const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
             
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-            ctx.strokeStyle = '#666';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.stroke();
+            if (canvasCoord.x >= 0 && canvasCoord.x <= width && 
+                canvasCoord.y >= 0 && canvasCoord.y <= height) {
+                
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            }
         });
 
         if (selectedRegion && mapData) {
@@ -273,13 +279,17 @@ const WorldMap = () => {
                 const coord = countryCoordinates[countryCode];
                 if (coord) {
                     const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
-                    ctx.fillStyle = region.color;
-                    ctx.strokeStyle = '#333';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(canvasCoord.x, canvasCoord.y, 8, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.stroke();
+                    if (canvasCoord.x >= 0 && canvasCoord.x <= width && 
+                        canvasCoord.y >= 0 && canvasCoord.y <= height) {
+                        
+                        ctx.fillStyle = region.color;
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(canvasCoord.x, canvasCoord.y, 8, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
                 }
             });
         }
@@ -346,30 +356,40 @@ const WorldMap = () => {
             
             if (coord && item.value !== null && !isNaN(item.value)) {
                 const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
-                const normalized = (item.value - min) / (max - min);
-                const intensity = Math.floor(normalized * 255);
-                const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
-                
-                ctx.fillStyle = color;
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(canvasCoord.x, canvasCoord.y, 12, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.stroke();
-                
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.fillRect(canvasCoord.x - 30, canvasCoord.y - 30, 60, 15);
-                ctx.fillRect(canvasCoord.x - 25, canvasCoord.y + 15, 50, 15);
-                
-                ctx.fillStyle = '#000';
-                ctx.font = 'bold 10px Arial';
-                ctx.textAlign = 'center';
-                const displayValue = typeof item.value === 'number' ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : item.value;
-                ctx.fillText(displayValue, canvasCoord.x, canvasCoord.y + 25);
-                
-                ctx.font = '9px Arial';
-                ctx.fillText(coord.name, canvasCoord.x, canvasCoord.y - 20);
+                if (canvasCoord.x >= 0 && canvasCoord.x <= ctx.canvas.width && 
+                    canvasCoord.y >= 0 && canvasCoord.y <= ctx.canvas.height) {
+                    
+                    const normalized = (item.value - min) / (max - min);
+                    const intensity = Math.floor(normalized * 255);
+                    const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
+                    
+                    ctx.fillStyle = color;
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(canvasCoord.x, canvasCoord.y, 12, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    const labelWidth = 60;
+                    const labelHeight = 15;
+                    const labelX = Math.max(0, Math.min(canvasCoord.x - labelWidth/2, ctx.canvas.width - labelWidth));
+                    const labelY1 = Math.max(0, canvasCoord.y - 30);
+                    const labelY2 = Math.min(ctx.canvas.height - labelHeight, canvasCoord.y + 15);
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(labelX, labelY1, labelWidth, labelHeight);
+                    ctx.fillRect(labelX, labelY2, labelWidth, labelHeight);
+
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    const displayValue = typeof item.value === 'number' ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : item.value;
+                    ctx.fillText(displayValue, canvasCoord.x, canvasCoord.y + 25);
+                    
+                    ctx.font = '9px Arial';
+                    ctx.fillText(coord.name, canvasCoord.x, canvasCoord.y - 20);
+                }
             }
         });
 
