@@ -161,7 +161,7 @@ const WorldMap = () => {
         const mercN = Math.log(Math.tan((Math.PI / 4) + (latRad / 2)));
         const y = (canvasHeight / 2) - (canvasWidth * mercN / (2 * Math.PI));
         return { x, y };
-    }
+    };
 
     const loadMapTiles = async () => {
         const canvas = canvasRef.current;
@@ -229,14 +229,14 @@ const WorldMap = () => {
         }
     };
 
-    const drawBaseMap = () => {
+    const drawWorldMap = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
         const { width, height } = canvas;
 
-        ctx.fillStyle = '#4a90e2';
+                ctx.fillStyle = '#4a90e2';
         ctx.fillRect(0, 0, width, height);
 
         if (tilesLoaded && Object.keys(mapTiles).length > 0) {
@@ -253,11 +253,11 @@ const WorldMap = () => {
             });
         }
 
-        Object.entries(countryCoordinates).forEach(([code, coord]) => {
+                Object.entries(countryCoordinates).forEach(([code, coord]) => {
             const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
             
             ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-            ctx.strokeStyle = '#777';
+            ctx.strokeStyle = '#666';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
@@ -306,7 +306,7 @@ const WorldMap = () => {
     const drawRegionButtons = (ctx) => {
         const buttonY = 450;
         const buttonHeight = 25;
-        const buttonSpecing = 10;
+        const buttonSpacing = 10;
         let currentX = 50;
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -343,7 +343,7 @@ const WorldMap = () => {
         data.forEach(item => {
             const countryCode = item.countryiso3code;
             const coord = countryCoordinates[countryCode];
-
+            
             if (coord && item.value !== null && !isNaN(item.value)) {
                 const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
                 const normalized = (item.value - min) / (max - min);
@@ -408,7 +408,7 @@ const WorldMap = () => {
         ctx.fillText(`Min: ${min.toLocaleString('en-US', { maximumFractionDigits: 1 })}`, legendX, legendY + legendHeight + 15);
         ctx.textAlign = 'right';
         ctx.fillText(`Max: ${max.toLocaleString('en-US', { maximumFractionDigits: 1 })}`, legendX + legendWidth, legendY + legendHeight + 15);
-    }
+    };
 
     const handleCanvasClick = (event) => {
         const canvas = canvasRef.current;
@@ -451,13 +451,14 @@ const WorldMap = () => {
             const regionData = regions[selectedRegion];
             const data = await fetchWorldBankData(indicator, year, regionData.countries);
             setMapData(data);
-            drawDataMap(data);
 
-            const canvas = canvasRef.current;
-            canvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                setDownloadUrl(url);
-            }, 'image/jpeg', 0.9);
+            setTimeout(() => {
+                const canvas = canvasRef.current;
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    setDownloadUrl(url);
+                }, 'image/jpeg', 0.9);
+            }, 100);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -473,44 +474,44 @@ const WorldMap = () => {
 
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px', maxWidth: '1200px' }}>
-            <h1>World Socioeconomic Indicators</h1>
-
             <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-                <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                    Indicator:
-                </label>
-                <select value={indicator} onChange={(e) => setIndicator(e.target.value)} style={{ padding: '5px', margin: '5px', width: '250px' }}>
-                    {Object.entries(indicators).map(([code, name]) => (
-                        <option key={code} value={code}>{name}</option>
-                    ))}
-                </select>
-            </div>
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
+                        Indicator:
+                    </label>
+                    <select value={indicator} onChange={(e) => setIndicator(e.target.value)} style={{ padding: '5px', margin: '5px', width: '250px' }}>
+                        {Object.entries(indicators).map(([code, name]) => (
+                            <option key={code} value={code}>{name}</option>
+                        ))}
+                    </select>
+                </div>
 
-            <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                    Year:
-                </label>
-                <select value={year} onChange={(e) => setYear(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
-                    {['2022', '2021', '2020', '2019'].map(y => (
-                        <option key={y} value={y}>{y}</option>
-                    ))}
-                </select>
-            </div>
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
+                        Year:
+                    </label>
+                    <select value={year} onChange={(e) => setYear(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
+                        {['2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
 
-            <div style={{ marginBottom: '20px' }}>
-                <button onClick={generateMap} disabled={loading || !selectedRegion} style={{ background: loading ? '#ccc' : '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: loading ? 'not-allowed' : 'pointer', margin: '5px' }}>
-                    {loading ? 'Generating...' : 'Generate Map'}
-                </button>
+                <div>
+                    <button onClick={generateMap} disabled={loading || !selectedRegion} style={{ background: loading ? '#ccc' : '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: loading ? 'not-allowed' : 'pointer', margin: '5px' }}>
+                        {loading ? 'Generating...' : 'Generate Data Visualization'}
+                    </button>
 
-                <button onClick={clearSelection} style={{ background: '#6c757d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', margin: '5px' }}>
-                    Clear Selection
-                </button>
+                    <button onClick={clearSelection} style={{ background: '#6c757d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', margin: '5px' }}>
+                        Clear Selection
+                    </button>
 
-                {downloadUrl && (
-                    <a href={downloadUrl} download={`indicadores-${selectedRegion}-${year}.jpg`} style={{ background: '#28a745', color: 'white', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none', margin: '5px', display: 'inline-block' }}>
-                        Download JPG
-                    </a>
-                )}
+                    {downloadUrl && (
+                        <a href={downloadUrl} download={`indicators-${selectedRegion}-${year}.jpg`} style={{ background: '#28a745', color: 'white', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none', margin: '5px', display: 'inline-block' }}>
+                            Download JPG
+                        </a>
+                    )}
+                </div>
             </div>
 
             {error && (
@@ -520,9 +521,9 @@ const WorldMap = () => {
             )}
 
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                <canvas ref={canvasRef} width={800} height={500} onClick={handleCanvasClick} style={{ border: '1px solid #ddd', cursor: 'pointer', maxWidth: '100%', display: 'block', margin: '0 auto' }} />
-                <p style={{ marginTop: '10px', color: '#333' }}>
-                    Click on a region to select it!
+                <canvas ref={canvasRef} width={800} height={500} onClick={handleCanvasClick} style={{ border: '2px solid #ddd', cursor: 'pointer', maxWidth: '100%', display: 'block', margin: '0 auto', borderRadius: '5px' }} />
+                <p style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
+                    {!tilesLoaded ? 'Loading satellite map...' : 'Click on region buttons in the map to select a region, then click "Generate Data Visualization" to see indicators'}
                 </p>
             </div>
         </div>
