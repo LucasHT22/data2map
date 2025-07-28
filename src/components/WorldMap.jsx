@@ -11,37 +11,44 @@ const WorldMap = () => {
     const [downloadUrl, setDownloadUrl] = useState('');
     const [mapTiles, setMapTiles] = useState({});
     const [tilesLoaded, setTilesLoaded] = useState(false);
+    const [mapView, setMapView] = useState({centerLat: 0, centerLng: 0, zoom: 1});
 
     const regions = {
         northAmerica: {
             name: 'North America',
             countries: ['USA', 'CAN', 'MEX', 'GTM', 'CUB', 'DOM', 'HTI', 'JAM', 'CRI', 'PAN'],
-            color: '#ff6b6b'
+            color: '#ff6b6b',
+            bounds: { north: 72, south: 7, west: -168, east: -52 }
         },
         southAmerica: {
             name: 'South America',
             countries: ['BRA', 'ARG', 'CHL', 'COL', 'PER', 'URY', 'PRY', 'BOL', 'ECU', 'VEN', 'GUY', 'SUR'],
-            color: '#4ecdc4'
+            color: '#4ecdc4',
+            bounds: { north: 13, south: -56, west: -82, east: -33 }
         },
         europe: {
             name: 'Europe',
             countries: ['DEU', 'FRA', 'GBR', 'ITA', 'ESP', 'NLD', 'BEL', 'CHE', 'AUT', 'SWE', 'NOR', 'DNK', 'FIN', 'POL', 'CZE', 'HUN', 'ROU', 'BGR', 'GRC', 'PRT', 'IRL', 'SVK', 'SVN', 'EST', 'LVA', 'LTU', 'HRV', 'SRB', 'BIH', 'MNE', 'MKD', 'ALB', 'UKR', 'BLR'],
-            color: '#45b7d1'
+            color: '#45b7d1',
+            bounds: { north: 71, south: 35, west: -25, east: 40 }
         },
         africa: {
             name: 'Africa',
             countries: ['ZAF', 'NGA', 'EGY', 'KEN', 'ETH', 'GHA', 'UGA', 'TZA', 'MOZ', 'AGO', 'DZA', 'MAR', 'TUN', 'LBY', 'SDN', 'TCD', 'NER', 'MLI', 'BFA', 'SEN', 'GMB', 'GIN', 'SLE', 'LBR', 'CIV', 'MDG', 'MWI', 'ZMB', 'ZWE', 'BWA', 'NAM', 'SWZ', 'LSO', 'RWA', 'BDI', 'CAF', 'CMR', 'GAB', 'COG', 'COD', 'SOM', 'DJI', 'ERI'],
-            color: '#f9ca24'
+            color: '#f9ca24',
+            bounds: { north: 37, south: -35, west: -18, east: 52 }
         },
         asia: {
             name: 'Asia',
             countries: ['CHN', 'IND', 'JPN', 'RUS', 'KOR', 'THA', 'VNM', 'IDN', 'MYS', 'SGP', 'PHL', 'KHM', 'LAO', 'MMR', 'BGD', 'PAK', 'AFG', 'IRN', 'IRQ', 'TUR', 'SAU', 'ARE', 'QAT', 'KWT', 'BHR', 'OMN', 'YEM', 'JOR', 'LBN', 'SYR', 'ISR', 'PSE', 'GEO', 'ARM', 'AZE', 'KAZ', 'UZB', 'TKM', 'KGZ', 'TJK', 'MNG', 'NPL', 'BTN', 'LKA', 'MDV'],
-            color: '#a55eea'
+            color: '#a55eea',
+            bounds: { north: 78, south: -11, west: 25, east: 180 }
         },
         oceania: {
             name: 'Oceania',
             countries: ['AUS', 'NZL', 'PNG', 'FJI', 'NCL', 'SLB', 'VUT', 'WSM', 'TON', 'PLW', 'FSM', 'MHL', 'KIR', 'NRU', 'TUV'],
-            color: '#26de81'
+            color: '#26de81',
+            bounds: { north: 0, south: -47, west: 110, east: -160 }
         }
     };
 
@@ -156,47 +163,83 @@ const WorldMap = () => {
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
-        const normalizedLng = (lng + 180) / 360;
-        const x = normalizedLng * canvasWidth;
-        const latRad = lat * Math.PI / 180;
-        const mercatorY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-        const maxMercatorY = Math.log(Math.tan(Math.PI / 4 + 85 * Math.PI / 180 / 2));
-        const minMercatorY = -maxMercatorY;
-        const normalizedLat = (mercatorY - minMercatorY) / (maxMercatorY - minMercatorY);
-        const y = (1 - normalizedLat) * canvasHeight;
+        const scale = 256 * Math.pow(2, mapView.zoom);
+        
+        const worldX = (lng + 180) / 360 * scale;
+        const worldY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * scale;
+        
+        const centerWorldX = (mapView.centerLng + 180) / 360 * scale;
+        const centerWorldY = (1 - Math.log(Math.tan(mapView.centerLat * Math.PI / 180) + 1 / Math.cos(mapView.centerLat * Math.PI / 180)) / Math.PI) / 2 * scale;
+        
+        const x = canvasWidth / 2 + (worldX - centerWorldX);
+        const y = canvasHeight / 2 + (worldY - centerWorldY);
         
         return { x, y };
     };
 
+    const zoomToRegion = (regionKey) => {
+        const region = regions[regionKey];
+        if (!region) return;
+
+        const bounds = region.bounds;
+        const centerLat = (bounds.north + bounds.south) / 2;
+        let centerLng = (bounds.west + bounds.east) / 2;
+
+        if (bounds.west > bounds.east) {
+            centerLng = ((bounds.west + bounds.east + 360) / 2) % 360;
+            if (centerLng > 180) centerLng -= 360;
+        }
+
+        const latRange = bounds.north - bounds.south;
+        const lngRange = bounds.west > bounds.east ? (360 - bounds.west + bounds.east) : (bounds.east - bounds.west);
+        
+        const maxRange = Math.max(latRange, lngRange);
+        let zoom = 1;
+        if (maxRange < 180) zoom = 2;
+        if (maxRange < 90) zoom = 3;
+        if (maxRange < 45) zoom = 4;
+        if (maxRange < 22) zoom = 5;
+
+        setMapView({centerLat, centerLng, zoom});
+    };
+
+    const resetView = () => {
+        setMapView({centerLat: 0, centerLng: 0, zoom: 1});
+    };
+
     const loadMapTiles = async () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const zoom = 1;
-        const tileSize = 256;
-        const worldWidthTiles = Math.pow(2, zoom);
-        const worldHeightTiles = Math.pow(2, zoom);
-
         const tiles = {};
         const promises = [];
 
-        for (let x = 0; x < worldWidthTiles; x++) {
-            for (let y = 0; y < worldHeightTiles; y++) {
-                const tileUrl = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
-                const promise = new Promise((resolve) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => {
-                        tiles[`${x}-${y}`] = img;
-                        resolve();
-                    };
-                    img.onerror = () => resolve();
-                    img.src = tileUrl;
-                });
-                promises.push(promise);
+        const zoomLevels = [1, 2, 3];
+
+        for (const zoom of zoomLevels) {
+            const maxTiles = Math.pow(2, zoom);
+            for (let x = 0; x < maxTiles; x++) {
+                for (let y = 0; y < maxTiles; y++) {
+                    const promise = new Promise((resolve) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                            tiles[`${zoom}-${x}-${y}`] = img;
+                            resolve();
+                        };
+                        img.onerror = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 256;
+                            canvas.height = 256;
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#2c5aa0';
+                            ctx.fillRect(0, 0, 256, 256);
+                            tiles[`${zoom}-${x}-${y}`] = canvas;
+                            resolve();
+                        };
+                        img.src = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+                    });
+                    promises.push(promise);
+                }
             }
         }
-
         await Promise.all(promises);
         setMapTiles(tiles);
         setTilesLoaded(true);
@@ -210,7 +253,7 @@ const WorldMap = () => {
         if (tilesLoaded) {
             drawWorldMap();
         }
-    }, [tilesLoaded, selectedRegion, mapData]);
+    }, [tilesLoaded, selectedRegion, mapData, mapView]);
 
     const fetchWorldBankData = async (indicator, year, countries = null) => {
         let url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?date=${year}&format=json&per_page=300`;
@@ -241,23 +284,38 @@ const WorldMap = () => {
         const ctx = canvas.getContext('2d');
         const { width, height } = canvas;
 
-        ctx.fillStyle = '#4a90e2';
+        ctx.fillStyle = '#1e3a5f';
         ctx.fillRect(0, 0, width, height);
 
         if (tilesLoaded && Object.keys(mapTiles).length > 0) {
             const tileSize = 256;
-            const zoom = 1;
-            const worldWidthTiles = Math.pow(2, zoom);
-            const worldHeightTiles = Math.pow(2, zoom);
-            const tileDisplayWidth = width / worldWidthTiles;
-            const tileDisplayHeight = height / worldHeightTiles;
+            const tileZoom = Math.min(3, Math.max(1, Math.floor(mapView.zoom)));
+            const tilesPerRow = Math.pow(2, tileZoom);
+            const scale = Math.pow(2, mapView.zoom - tileZoom);
+            const scaledTileSize = tileSize * scale;
+            
+            const centerTileX = (mapView.centerLng + 180) / 360 * tilesPerRow;
+            const centerTileY = (1 - Math.log(Math.tan(mapView.centerLat * Math.PI / 180) + 1 / Math.cos(mapView.centerLat * Math.PI / 180)) / Math.PI) / 2 * tilesPerRow;
+            
+            const offsetX = width / 2 - centerTileX * scaledTileSize;
+            const offsetY = height / 2 - centerTileY * scaledTileSize;
 
-            Object.entries(mapTiles).forEach(([key, img]) => {
-                const [x, y] = key.split('-').map(Number);
-                ctx.globalAlpha = 0.7;
-                ctx.drawImage(img, x * tileDisplayWidth, y * tileDisplayHeight, tileDisplayWidth, tileDisplayHeight);
-                ctx.globalAlpha = 1.0;
-            });
+            for (let x = 0; x < tilesPerRow; x++) {
+                for (let y = 0; y < tilesPerRow; y++) {
+                    const tileKey = `${tileZoom}-${x}-${y}`;
+                    const tile = mapTiles[tileKey];
+                    
+                    if (tile) {
+                        const tileX = offsetX + x * scaledTileSize;
+                        const tileY = offsetY + y * scaledTileSize;
+                        
+                        if (tileX + scaledTileSize > 0 && tileX < width && 
+                            tileY + scaledTileSize > 0 && tileY < height) {
+                            ctx.drawImage(tile, tileX, tileY, scaledTileSize, scaledTileSize);
+                        }
+                    }
+                }
+            }
         }
 
         Object.entries(countryCoordinates).forEach(([code, coord]) => {
@@ -267,10 +325,11 @@ const WorldMap = () => {
                 canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
                 
                 ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-                ctx.strokeStyle = '#666';
+                ctx.strokeStyle = '#333';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
+                const radius = mapView.zoom >= 3 ? 6 : 4;
+                ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
                 ctx.fill();
                 ctx.stroke();
             }
@@ -284,14 +343,14 @@ const WorldMap = () => {
                 const coord = countryCoordinates[countryCode];
                 if (coord) {
                     const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
-                    if (canvasCoord.x >= 0 && canvasCoord.x <= width && 
-                        canvasCoord.y >= 0 && canvasCoord.y <= height) {
+                    if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
                         
                         ctx.fillStyle = region.color;
                         ctx.strokeStyle = '#333';
                         ctx.lineWidth = 2;
                         ctx.beginPath();
-                        ctx.arc(canvasCoord.x, canvasCoord.y, 8, 0, 2 * Math.PI);
+                        const radius = mapView.zoom >= 3 ? 10 : 8;
+                        ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
                         ctx.fill();
                         ctx.stroke();
                     }
@@ -300,8 +359,11 @@ const WorldMap = () => {
         }
 
         drawRegionButtons(ctx);
+        drawHeader(ctx, width);
+    };
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    const drawHeader = (ctx, width) => {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillRect(0, 0, width, 80);
         
         ctx.fillStyle = '#333';
@@ -311,12 +373,12 @@ const WorldMap = () => {
 
         if (selectedRegion) {
             ctx.font = '16px Arial';
-            ctx.fillText(`Selected: ${regions[selectedRegion].name}`, width/2, 55);
+            ctx.fillText(`Selected: ${regions[selectedRegion].name} (Zoom: ${mapView.zoom}x)`, width/2, 55);
         } else {
             ctx.font = '14px Arial';
-            ctx.fillText('Click on a region button to select it', width/2, 55);
+            ctx.fillText('Click on region buttons to select and zoom to a region', width/2, 55);
         }
-    };
+    }
 
     const drawRegionButtons = (ctx) => {
         const buttonY = 450;
@@ -362,8 +424,7 @@ const WorldMap = () => {
             if (coord && item.value !== null && !isNaN(item.value)) {
                 const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
                 
-                if (canvasCoord.x >= -15 && canvasCoord.x <= ctx.canvas.width + 15 && 
-                    canvasCoord.y >= -15 && canvasCoord.y <= ctx.canvas.height + 15) {
+                if (canvasCoord.x >= -20 && canvasCoord.x <= ctx.canvas.width + 20 && canvasCoord.y >= -20 && canvasCoord.y <= ctx.canvas.height + 20) {
                     
                     const normalized = (item.value - min) / (max - min);
                     const intensity = Math.floor(normalized * 255);
@@ -373,33 +434,32 @@ const WorldMap = () => {
                     ctx.strokeStyle = '#333';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(canvasCoord.x, canvasCoord.y, 12, 0, 2 * Math.PI);
+                    const radius = mapView.zoom >= 3 ? 14 : 12;
+                    ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
                     ctx.fill();
                     ctx.stroke();
-                    const labelWidth = 60;
-                    const labelHeight = 15;
-                    const labelX = Math.max(5, Math.min(canvasCoord.x - labelWidth/2, ctx.canvas.width - labelWidth - 5));
-                    const labelY1 = Math.max(5, canvasCoord.y - 30);
-                    const labelY2 = Math.min(ctx.canvas.height - labelHeight - 5, canvasCoord.y + 15);
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    ctx.fillRect(labelX, labelY1, labelWidth, labelHeight);
-                    ctx.fillRect(labelX, labelY2, labelWidth, labelHeight);
 
+                    const displayValue = typeof item.value === 'number' ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : item.value;
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(canvasCoord.x - 30, canvasCoord.y + 20, 60, 15);
                     ctx.fillStyle = '#000';
                     ctx.font = 'bold 10px Arial';
                     ctx.textAlign = 'center';
-                    const displayValue = typeof item.value === 'number' ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : item.value;
-                    ctx.fillText(displayValue, canvasCoord.x, canvasCoord.y + 25);
+                    ctx.fillText(displayValue, canvasCoord.x, canvasCoord.y + 32);
                     
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(canvasCoord.x - 30, canvasCoord.y - 25, 60, 15);
+                    ctx.fillStyle = '#000';
                     ctx.font = '9px Arial';
-                    ctx.fillText(coord.name, canvasCoord.x, canvasCoord.y - 20);
+                    ctx.fillText(coord.name, canvasCoord.x, canvasCoord.y - 15);
                 }
             }
         });
 
-        drawLegend(ctx, min, max, ctx.canvas.width, ctx.canvas.height);
+        drawLegend(ctx, min, max);
         
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillRect(10, ctx.canvas.height - 30, 300, 25);
         ctx.fillStyle = '#333';
         ctx.font = '14px Arial';
@@ -450,9 +510,16 @@ const WorldMap = () => {
         for (const [key, region] of Object.entries(regions)) {
             const buttonWidth = ctx.measureText(region.name).width + 20;
             
-            if (x >= currentX && x <= currentX + buttonWidth &&
-                y >= buttonY && y <= buttonY + buttonHeight) {
-                setSelectedRegion(key === selectedRegion ? null : key);
+            if (x >= currentX && x <= currentX + buttonWidth && y >= buttonY && y <= buttonY + buttonHeight) {
+                const isCurrentlySelected = selectedRegion === key;
+                
+                if (isCurrentlySelected) {
+                    setSelectedRegion(null);
+                    resetView();
+                } else {
+                    setSelectedRegion(key);
+                    zoomToRegion(key);
+                }
                 setMapData(null);
                 setDownloadUrl('');
                 return;
@@ -494,6 +561,7 @@ const WorldMap = () => {
         setSelectedRegion(null);
         setMapData(null);
         setDownloadUrl('');
+        resetView();
     };
 
     return (
@@ -530,6 +598,10 @@ const WorldMap = () => {
                         Clear Selection
                     </button>
 
+                    <button onClick={resetView} style={{ background: '#17a2b8', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', margin: '5px' }}>
+                        Reset View
+                    </button>
+
                     {downloadUrl && (
                         <a href={downloadUrl} download={`indicators-${selectedRegion}-${year}.jpg`} style={{ background: '#28a745', color: 'white', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none', margin: '5px', display: 'inline-block' }}>
                             Download JPG
@@ -547,7 +619,9 @@ const WorldMap = () => {
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
                 <canvas ref={canvasRef} width={800} height={500} onClick={handleCanvasClick} style={{ border: '2px solid #ddd', cursor: 'pointer', maxWidth: '100%', display: 'block', margin: '0 auto', borderRadius: '5px' }} />
                 <p style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
-                    {!tilesLoaded ? 'Loading satellite map...' : 'Click on region buttons in the map to select a region, then click "Generate Data Visualization" to see indicators'}
+                    {!tilesLoaded ? 'Loading satellite map...' : selectedRegion ? 
+                        `Viewing ${regions[selectedRegion].name} at ${mapView.zoom}x zoom - Click the region button again to deselect` : 
+                        'Click on region buttons in the map to select and zoom to a region'}
                 </p>
             </div>
         </div>
