@@ -358,7 +358,7 @@ const WorldMap = () => {
             });
         }
 
-        drawRegionButtons(ctx);
+        drawRegionButtons(ctx, width, height);
         drawHeader(ctx, width);
     };
 
@@ -380,14 +380,18 @@ const WorldMap = () => {
         }
     }
 
-    const drawRegionButtons = (ctx) => {
-        const buttonY = 450;
-        const buttonHeight = 25;
-        const buttonSpacing = 10;
-        let currentX = 50;
+    const drawRegionButtons = (ctx, width, height) => {
+        const buttonY = height - 50;
+        const buttonHeight = 30;
+        const buttonSpacing = 8;
+        const totalButtonsWidth = Object.values(regions).reduce((sum, region) => {
+            return sum + ctx.measureText(region.name).width + 20;
+        }, 0) + (Object.keys(regions).length - 1) * buttonSpacing;
+        
+        let currentX = (width - totalButtonsWidth) / 2;
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.fillRect(0, buttonY - 5, ctx.canvas.width, 40);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillRect(0, buttonY - 5, width, 40);
 
         Object.entries(regions).forEach(([key, region]) => {
             const buttonWidth = ctx.measureText(region.name).width + 20;
@@ -402,7 +406,7 @@ const WorldMap = () => {
             ctx.fillStyle = isSelected ? '#fff' : '#333';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(region.name, currentX + buttonWidth/2, buttonY + 16);
+            ctx.fillText(region.name, currentX + buttonWidth/2, buttonY + 20);
             
             currentX += buttonWidth + buttonSpacing;
         });
@@ -499,18 +503,25 @@ const WorldMap = () => {
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
+        const { width, height } = canvas;
 
-        const buttonY = 450;
-        const buttonHeight = 25;
-        const buttonSpacing = 10;
-        let currentX = 50;
-
-        const ctx = canvas.getContext('2d');
+        const buttonY = height - 50;
+        const buttonHeight = 30;
+        const buttonSpacing = 8;
         
+        const ctx = canvas.getContext('2d');
+        const totalButtonsWidth = Object.values(regions).reduce((sum, region) => {
+            return sum + ctx.measureText(region.name).width + 20;
+        }, 0) + (Object.keys(regions).length - 1) * buttonSpacing;
+        
+        let currentX = (width - totalButtonsWidth) / 2;
+
         for (const [key, region] of Object.entries(regions)) {
             const buttonWidth = ctx.measureText(region.name).width + 20;
             
-            if (x >= currentX && x <= currentX + buttonWidth && y >= buttonY && y <= buttonY + buttonHeight) {
+            if (x >= currentX && x <= currentX + buttonWidth && 
+                y >= buttonY && y <= buttonY + buttonHeight) {
+                
                 const isCurrentlySelected = selectedRegion === key;
                 
                 if (isCurrentlySelected) {
