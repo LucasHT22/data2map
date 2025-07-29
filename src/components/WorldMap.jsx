@@ -163,13 +163,19 @@ const WorldMap = () => {
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
+        if (!canvasWidth || !canvasHeight || isNaN(lat) || isNaN(lng)) {
+            return { x: 0, y: 0 };
+        }
+        
         const scale = 256 * Math.pow(2, mapView.zoom);
         
         const worldX = (lng + 180) / 360 * scale;
-        const worldY = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * scale;
+        const latRad = lat * Math.PI / 180;
+        const worldY = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * scale;
         
         const centerWorldX = (mapView.centerLng + 180) / 360 * scale;
-        const centerWorldY = (1 - Math.log(Math.tan(mapView.centerLat * Math.PI / 180) + 1 / Math.cos(mapView.centerLat * Math.PI / 180)) / Math.PI) / 2 * scale;
+        const centerLatRad = mapView.centerLat * Math.PI / 180;
+        const centerWorldY = (1 - Math.log(Math.tan(centerLatRad) + 1 / Math.cos(centerLatRad)) / Math.PI) / 2 * scale;
         
         const x = canvasWidth / 2 + (worldX - centerWorldX);
         const y = canvasHeight / 2 + (worldY - centerWorldY);
@@ -240,9 +246,16 @@ const WorldMap = () => {
                 }
             }
         }
-        await Promise.all(promises);
-        setMapTiles(tiles);
-        setTilesLoaded(true);
+        
+        try {
+            await Promise.all(promises);
+            setMapTiles(tiles);
+            setTilesLoaded(true);
+        } catch (error) {
+            console.warn('Some tiles failed to load, using fallback');
+            setMapTiles(tiles);
+            setTilesLoaded(true);
+        }
     };
 
     useEffect(() => {
@@ -265,15 +278,32 @@ const WorldMap = () => {
 
         try {
             const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
             
             if (!data || data.length < 2 || !data[1]) {
                 throw new Error('Data not found');
             }
             
-            return data[1].filter(item => item.value !== null);
+            const filteredData = data[1].filter(item => 
+                item && 
+                item.value !== null && 
+                item.value !== undefined && 
+                !isNaN(item.value) &&
+                item.countryiso3code
+            );
+            
+            if (filteredData.length === 0) {
+                throw new Error('No valid data available for the selected parameters');
+            }
+            
+            return filteredData;
         } catch (error) {
-            throw new Error(`Error: ${error.message}`);
+            console.error('API Error:', error);
+            throw new Error(`Failed to fetch data: ${error.message}`);
         }
     };
 
@@ -295,7 +325,8 @@ const WorldMap = () => {
             const scaledTileSize = tileSize * scale;
             
             const centerTileX = (mapView.centerLng + 180) / 360 * tilesPerRow;
-            const centerTileY = (1 - Math.log(Math.tan(mapView.centerLat * Math.PI / 180) + 1 / Math.cos(mapView.centerLat * Math.PI / 180)) / Math.PI) / 2 * tilesPerRow;
+            const centerLatRad = mapView.centerLat * Math.PI / 180;
+            const centerTileY = (1 - Math.log(Math.tan(centerLatRad) + 1 / Math.cos(centerLatRad)) / Math.PI) / 2 * tilesPerRow;
             
             const offsetX = width / 2 - centerTileX * scaledTileSize;
             const offsetY = height / 2 - centerTileY * scaledTileSize;
@@ -363,13 +394,13 @@ const WorldMap = () => {
     };
 
     const drawHeader = (ctx, width) => {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
         ctx.fillRect(0, 0, width, 80);
         
         ctx.fillStyle = '#333';
         ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('World Socioeconomic Indicators Map', width/2, 30);
+        ctx.fillText(`World Socioeconomic ${indicators[indicator]} - ${year}`, width/2, 30);
 
         if (selectedRegion) {
             ctx.font = '16px Arial';
@@ -378,23 +409,32 @@ const WorldMap = () => {
             ctx.font = '14px Arial';
             ctx.fillText('Click on region buttons to select and zoom to a region', width/2, 55);
         }
-    }
+    };
 
     const drawRegionButtons = (ctx, width, height) => {
         const buttonY = height - 50;
         const buttonHeight = 30;
         const buttonSpacing = 8;
-        const totalButtonsWidth = Object.values(regions).reduce((sum, region) => {
-            return sum + ctx.measureText(region.name).width + 20;
-        }, 0) + (Object.keys(regions).length - 1) * buttonSpacing;
         
-        let currentX = (width - totalButtonsWidth) / 2;
+        const buttonWidths = {};
+        let totalWidth = 0;
+        
+        Object.entries(regions).forEach(([key, region]) => {
+            ctx.font = '12px Arial';
+            const textWidth = ctx.measureText(region.name).width;
+            const buttonWidth = textWidth + 20;
+            buttonWidths[key] = buttonWidth;
+            totalWidth += buttonWidth;
+        });
+        
+        totalWidth += (Object.keys(regions).length - 1) * buttonSpacing;
+        let currentX = (width - totalWidth) / 2;
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillRect(0, buttonY - 5, width, 40);
 
         Object.entries(regions).forEach(([key, region]) => {
-            const buttonWidth = ctx.measureText(region.name).width + 20;
+            const buttonWidth = buttonWidths[key];
             const isSelected = selectedRegion === key;
             
             ctx.fillStyle = isSelected ? region.color : '#f0f0f0';
@@ -420,6 +460,7 @@ const WorldMap = () => {
         
         const min = Math.min(...values);
         const max = Math.max(...values);
+        const range = max - min;
 
         data.forEach(item => {
             const countryCode = item.countryiso3code;
@@ -430,7 +471,7 @@ const WorldMap = () => {
                 
                 if (canvasCoord.x >= -20 && canvasCoord.x <= ctx.canvas.width + 20 && canvasCoord.y >= -20 && canvasCoord.y <= ctx.canvas.height + 20) {
                     
-                    const normalized = (item.value - min) / (max - min);
+                    const normalized = range > 0 ? (item.value - min) / range : 0;
                     const intensity = Math.floor(normalized * 255);
                     const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
                     
@@ -443,7 +484,9 @@ const WorldMap = () => {
                     ctx.fill();
                     ctx.stroke();
 
-                    const displayValue = typeof item.value === 'number' ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : item.value;
+                    const displayValue = typeof item.value === 'number' ? 
+                        item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : 
+                        item.value;
                     
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.fillRect(canvasCoord.x - 30, canvasCoord.y + 20, 60, 15);
@@ -462,16 +505,11 @@ const WorldMap = () => {
         });
 
         drawLegend(ctx, min, max);
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(10, ctx.canvas.height - 30, 300, 25);
-        ctx.fillStyle = '#333';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${indicators[indicator]} - ${year}`, 20, ctx.canvas.height - 10);
     };
 
-    const drawLegend = (ctx, min, max, width, height) => {
+    const drawLegend = (ctx, min, max) => {
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
         const legendX = width - 220;
         const legendY = height - 80;
         const legendWidth = 180;
@@ -500,6 +538,8 @@ const WorldMap = () => {
 
     const handleCanvasClick = (event) => {
         const canvas = canvasRef.current;
+        if (!canvas) return;
+        
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
@@ -510,14 +550,23 @@ const WorldMap = () => {
         const buttonSpacing = 8;
         
         const ctx = canvas.getContext('2d');
-        const totalButtonsWidth = Object.values(regions).reduce((sum, region) => {
-            return sum + ctx.measureText(region.name).width + 20;
-        }, 0) + (Object.keys(regions).length - 1) * buttonSpacing;
+        ctx.font = '12px Arial';
         
-        let currentX = (width - totalButtonsWidth) / 2;
+        const buttonWidths = {};
+        let totalWidth = 0;
+        
+        Object.entries(regions).forEach(([key, region]) => {
+            const textWidth = ctx.measureText(region.name).width;
+            const buttonWidth = textWidth + 20;
+            buttonWidths[key] = buttonWidth;
+            totalWidth += buttonWidth;
+        });
+        
+        totalWidth += (Object.keys(regions).length - 1) * buttonSpacing;
+        let currentX = (width - totalWidth) / 2;
 
         for (const [key, region] of Object.entries(regions)) {
-            const buttonWidth = ctx.measureText(region.name).width + 20;
+            const buttonWidth = buttonWidths[key];
             
             if (x >= currentX && x <= currentX + buttonWidth && 
                 y >= buttonY && y <= buttonY + buttonHeight) {
@@ -542,7 +591,7 @@ const WorldMap = () => {
 
     const generateMap = async () => {
         if (!selectedRegion) {
-            setError('Select a region first');
+            setError('Please select a region first');
             return;
         }
 
@@ -552,17 +601,30 @@ const WorldMap = () => {
         try {
             const regionData = regions[selectedRegion];
             const data = await fetchWorldBankData(indicator, year, regionData.countries);
+            
+            if (!data || data.length === 0) {
+                throw new Error('No data available for the selected region and indicator');
+            }
+            
             setMapData(data);
 
             setTimeout(() => {
                 const canvas = canvasRef.current;
-                canvas.toBlob((blob) => {
-                    const url = URL.createObjectURL(blob);
-                    setDownloadUrl(url);
-                }, 'image/jpeg', 0.9);
+                if (canvas) {
+                    try {
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                setDownloadUrl(url);
+                            }
+                        }, 'image/jpeg', 0.9);
+                    } catch (error) {
+                        console.warn('Download generation failed:', error);
+                    }
+                }
             }, 100);
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'Failed to generate visualization');
         } finally {
             setLoading(false);
         }
@@ -572,6 +634,7 @@ const WorldMap = () => {
         setSelectedRegion(null);
         setMapData(null);
         setDownloadUrl('');
+        setError('');
         resetView();
     };
 
@@ -582,7 +645,11 @@ const WorldMap = () => {
                     <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
                         Indicator:
                     </label>
-                    <select value={indicator} onChange={(e) => setIndicator(e.target.value)} style={{ padding: '5px', margin: '5px', width: '250px' }}>
+                    <select 
+                        value={indicator} 
+                        onChange={(e) => setIndicator(e.target.value)} 
+                        style={{ padding: '5px', margin: '5px', width: '250px' }}
+                    >
                         {Object.entries(indicators).map(([code, name]) => (
                             <option key={code} value={code}>{name}</option>
                         ))}
@@ -601,7 +668,7 @@ const WorldMap = () => {
                 </div>
 
                 <div>
-                    <button onClick={generateMap} disabled={loading || !selectedRegion} style={{ background: loading ? '#ccc' : '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: loading ? 'not-allowed' : 'pointer', margin: '5px' }}>
+                    <button onClick={generateMap} disabled={loading || !selectedRegion} style={{ background: loading ? '#ccc' : !selectedRegion ? '#ccc' : '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: loading || !selectedRegion ? 'not-allowed' : 'pointer', margin: '5px' }}>
                         {loading ? 'Generating...' : 'Generate Data Visualization'}
                     </button>
 
