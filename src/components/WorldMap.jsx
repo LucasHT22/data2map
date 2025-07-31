@@ -12,6 +12,8 @@ const WorldMap = () => {
     const [mapTiles, setMapTiles] = useState({});
     const [tilesLoaded, setTilesLoaded] = useState(false);
     const [mapView, setMapView] = useState({centerLat: 0, centerLng: 0, zoom: 1});
+    const [hoveredCountry, setHoveredCountry] = useState(null);
+    const [showLabels, setShowLabels] = useState(true);
 
     const regions = {
         northAmerica: {
@@ -160,6 +162,56 @@ const WorldMap = () => {
         'SP.DYN.LE00.IN': 'Life expectancy (years)',
         'SE.ADT.LITR.ZS': 'Literacy rate (%)',
         'SL.UEM.TOTL.ZS': 'Unemployment rate (%)'
+    };
+
+    const detectLabelCollisions = (labels) => {
+        const minDistance = 50;
+        const collisions = [];
+
+        for (let i = 0; i < labels.length; i++) {
+            for (let j = 0; j < labels.length; j++) {
+                const label1 = labels[i];
+                const label2 = labels[j];
+
+                const distance = Math.sqrt(Math.pow(label1.x - label2.x, 2) + Math.pow(label1.y - label2.y, 2));
+
+                if (distance < minDistance) {
+                    collisions.push({ i, j, distance });
+                }
+            }
+        }
+        return collisions;
+    };
+
+    const repositionLabels = (labels) => {
+        const maxIterations = 50;
+        let iteration = 0;
+
+        while (iteration < maxIterations) {
+            const collisions = detectLabelCollisions(labels);
+            if (collisions.length === 0) break;
+
+            collisions.forEach(collision => {
+                const label1 = labels[collision.i];
+                const label2 = labels[collision.j];
+
+                const dx = label2.x - label1.x;
+                const dy = label2.z - label1.y;
+
+                if (distance > 0) {
+                    const pushDistance = (50 - distance) / 2;
+                    const pushX = (dx / distance) * pushDistance;
+                    const pushY = (dy / distance) * pushDistance;
+                    
+                    label1.x -= pushX;
+                    label1.y -= pushY;
+                    label2.x += pushX;
+                    label2.y += pushY;
+                }
+            });
+            iteration++;
+        }
+        return labels;
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
@@ -367,7 +419,7 @@ const WorldMap = () => {
         });
 
         if (selectedRegion && mapData) {
-            drawDataVisualization(ctx, mapData);
+            drawDataVisualizationImproved(ctx, mapData);
         } else if (selectedRegion) {
             const region = regions[selectedRegion];
             region.countries.forEach(countryCode => {
@@ -389,9 +441,140 @@ const WorldMap = () => {
             });
         }
 
+        if (hoveredCountry) {
+            drawToolTip(ctx, hoveredCountry);
+        }
+
         drawRegionButtons(ctx, width, height);
         drawHeader(ctx, width);
     };
+
+    const drawDataVisualizationImproved = (ctx, data) => {
+        if (!data || data.length === 0) return;
+        
+        const values = data.map(d => d.value).filter(v => v !== null && !isNaN(v));
+        if (values.length === 0) return;
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = max - min;
+
+        const labels = [];
+        const points = [];
+
+        data.forEach(item => {
+            const countryCode = item.countryiso3code;
+            const coord = countryCoordinates[countryCode];
+            
+            if (coord && item.value !== null && !isNaN(item.value)) {
+                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
+                
+                if (canvasCoord.x >= -20 && canvasCoord.x <= ctx.canvas.width + 20 && 
+                    canvasCoord.y >= -20 && canvasCoord.y <= ctx.canvas.height + 20) {
+                    
+                    const normalized = range > 0 ? (item.value - min) / range : 0;
+                    const intensity = Math.floor(normalized * 255);
+                    const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
+                    
+                    points.push({
+                        x: canvasCoord.x,
+                        y: canvasCoord.y,
+                        color,
+                        countryCode,
+                        coord,
+                        item
+                    });
+
+                    const displayValue = typeof item.value === 'number' ? 
+                        item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : 
+                        item.value;
+                    
+                    labels.push({
+                        x: canvasCoord.x,
+                        y: canvasCoord.y + 35,
+                        text: displayValue,
+                        countryName: coord.name,
+                        originalX: canvasCoord.x,
+                        originalY: canvasCoord.y,
+                        countryCode
+                    });
+                }
+            }
+        });
+        const adjustedLabels = showLabels ? repositionLabels(labels) : [];
+
+        points.forEach(point => {
+            ctx.fillStyle = point.color;
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const radius = mapView.zoom >= 3 ? 14 : 12;
+            ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        if (showLabels) {
+            adjustedLabels.forEach(label => {
+                const distance = Math.sqrt(Math.pow(label.x - label.originalX, 2) + Math.pow(label.y - label.originalY, 2));
+
+                if (distance > 20) {
+                    ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([2, 2]);
+                    ctx.beginPath();
+                    ctx.moveTo(label.originalX, label.originalY);
+                    ctx.lineTo(label.x, label.y - 10);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                ctx.font = 'bold 10px Arial';
+                const textWidth = Math.max(ctx.measureText(label.text).width, ctx.measureText(label.countryName).width);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.fillRect(label.x - textWidth/2 - 5, label.y - 20, textWidth + 10, 25);
+                ctx.strokeRect(label.x - textWidth/2 - 5, label.y - 20, textWidth + 10, 25);
+                
+                ctx.fillStyle = '#000';
+                ctx.font = '9px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(label.countryName, label.x, label.y - 10);
+                
+                ctx.font = 'bold 10px Arial';
+                ctx.fillText(label.text, label.x, label.y - 2);
+            });
+        }
+        drawLegend(ctx, min, max);
+    };
+
+    const drawToolTip = (ctx, countryData) => {
+        const { x, y, countryName, value } = countryData;
+
+        ctx.font = '12px Arial';
+        const text1 = countryName;
+        const text2 = value ? `${indicators[indicator]}: ${value}` : 'No data available';
+        
+        const maxWidth = Math.max(ctx.measureText(text1).width, ctx.measureText(text2).width);
+        const tooltipWidth = maxWidth + 20;
+        const tooltipHeight = 40;
+        
+        let tooltipX = x + 15;
+        let tooltipY = y - 25;
+        
+        if (tooltipX + tooltipWidth > ctx.canvas.width) tooltipX = x - tooltipWidth - 15;
+        if (tooltipY < 0) tooltipY = y + 15;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(text1, tooltipX + 10, tooltipY + 15);
+        ctx.font = '11px Arial';
+        ctx.fillText(text2, tooltipX + 10, tooltipY + 30);
+    }
 
     const drawHeader = (ctx, width) => {
         ctx.fillStyle = 'rgba(255, 255, 255, 1)';
@@ -450,61 +633,6 @@ const WorldMap = () => {
             
             currentX += buttonWidth + buttonSpacing;
         });
-    };
-
-    const drawDataVisualization = (ctx, data) => {
-        if (!data || data.length === 0) return;
-        
-        const values = data.map(d => d.value).filter(v => v !== null && !isNaN(v));
-        if (values.length === 0) return;
-        
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const range = max - min;
-
-        data.forEach(item => {
-            const countryCode = item.countryiso3code;
-            const coord = countryCoordinates[countryCode];
-            
-            if (coord && item.value !== null && !isNaN(item.value)) {
-                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
-                
-                if (canvasCoord.x >= -20 && canvasCoord.x <= ctx.canvas.width + 20 && canvasCoord.y >= -20 && canvasCoord.y <= ctx.canvas.height + 20) {
-                    
-                    const normalized = range > 0 ? (item.value - min) / range : 0;
-                    const intensity = Math.floor(normalized * 255);
-                    const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
-                    
-                    ctx.fillStyle = color;
-                    ctx.strokeStyle = '#333';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    const radius = mapView.zoom >= 3 ? 14 : 12;
-                    ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.stroke();
-
-                    const displayValue = typeof item.value === 'number' ? 
-                        item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : 
-                        item.value;
-                    
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    ctx.fillRect(canvasCoord.x - 30, canvasCoord.y + 20, 60, 15);
-                    ctx.fillStyle = '#000';
-                    ctx.font = 'bold 10px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(displayValue, canvasCoord.x, canvasCoord.y + 32);
-                    
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    ctx.fillRect(canvasCoord.x - 30, canvasCoord.y - 25, 60, 15);
-                    ctx.fillStyle = '#000';
-                    ctx.font = '9px Arial';
-                    ctx.fillText(coord.name, canvasCoord.x, canvasCoord.y - 15);
-                }
-            }
-        });
-
-        drawLegend(ctx, min, max);
     };
 
     const drawLegend = (ctx, min, max) => {
@@ -589,6 +717,32 @@ const WorldMap = () => {
         }
     };
 
+    const handleCanvasMouseClick = (event) => {
+        const canvas = canvasRef.current;
+        if (!canvas || !mapData) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        let foundCountry = null;
+
+        mapData.forEach(item => {
+            const countryCode = item.countryiso3code;
+            const coord = countryCoordinates[countryCode];
+
+            if (coord) {
+                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, canvas.width, canvas.height);
+                const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
+                const radius = mapView.zoom >= 3 ? 14 : 12;
+                if (distance <= radius) {
+                    foundCountry = { x: canvasCoord.x, y: canvasCoord.y, countryName: coord.name, value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null };
+                }
+            }
+        });
+        setHoveredCountry(foundCountry);
+    };
+
     const generateMap = async () => {
         if (!selectedRegion) {
             setError('Please select a region first');
@@ -635,6 +789,7 @@ const WorldMap = () => {
         setMapData(null);
         setDownloadUrl('');
         setError('');
+        setHoveredCountry(null);
         resetView();
     };
 
@@ -665,6 +820,21 @@ const WorldMap = () => {
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
+                        Show Labels:
+                    </label>
+                    <input 
+                        type="checkbox" 
+                        checked={showLabels} 
+                        onChange={(e) => setShowLabels(e.target.checked)}
+                        style={{ margin: '5px' }}
+                    />
+                    <small style={{ color: '#666', marginLeft: '10px' }}>
+                        Uncheck to reduce text overlap
+                    </small>
                 </div>
 
                 <div>
