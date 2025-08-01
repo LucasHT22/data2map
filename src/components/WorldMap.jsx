@@ -169,7 +169,7 @@ const WorldMap = () => {
         const collisions = [];
 
         for (let i = 0; i < labels.length; i++) {
-            for (let j = 0; j < labels.length; j++) {
+            for (let j = i + 1; j < labels.length; j++) {
                 const label1 = labels[i];
                 const label2 = labels[j];
 
@@ -196,7 +196,8 @@ const WorldMap = () => {
                 const label2 = labels[collision.j];
 
                 const dx = label2.x - label1.x;
-                const dy = label2.z - label1.y;
+                const dy = label2.y - label1.y;
+                const distance = collision.distance;
 
                 if (distance > 0) {
                     const pushDistance = (50 - distance) / 2;
@@ -318,7 +319,7 @@ const WorldMap = () => {
         if (tilesLoaded) {
             drawWorldMap();
         }
-    }, [tilesLoaded, selectedRegion, mapData, mapView]);
+    }, [tilesLoaded, selectedRegion, mapData, mapView, hoveredCountry]);
 
     const fetchWorldBankData = async (indicator, year, countries = null) => {
         let url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?date=${year}&format=json&per_page=300`;
@@ -419,7 +420,7 @@ const WorldMap = () => {
         });
 
         if (selectedRegion && mapData) {
-            drawDataVisualizationImproved(ctx, mapData);
+            drawDataVisualization(ctx, mapData);
         } else if (selectedRegion) {
             const region = regions[selectedRegion];
             region.countries.forEach(countryCode => {
@@ -449,7 +450,7 @@ const WorldMap = () => {
         drawHeader(ctx, width);
     };
 
-    const drawDataVisualizationImproved = (ctx, data) => {
+    const drawDataVisualization = (ctx, data) => {
         if (!data || data.length === 0) return;
         
         const values = data.map(d => d.value).filter(v => v !== null && !isNaN(v));
@@ -501,7 +502,7 @@ const WorldMap = () => {
                 }
             }
         });
-        const adjustedLabels = showLabels ? repositionLabels(labels) : [];
+        const adjustedLabels = showLabels ? repositionLabels([...labels]) : [];
 
         points.forEach(point => {
             ctx.fillStyle = point.color;
@@ -574,7 +575,7 @@ const WorldMap = () => {
         ctx.fillText(text1, tooltipX + 10, tooltipY + 15);
         ctx.font = '11px Arial';
         ctx.fillText(text2, tooltipX + 10, tooltipY + 30);
-    }
+    };
 
     const drawHeader = (ctx, width) => {
         ctx.fillStyle = 'rgba(255, 255, 255, 1)';
@@ -710,37 +711,35 @@ const WorldMap = () => {
                 }
                 setMapData(null);
                 setDownloadUrl('');
+                setHoveredCountry(null);
                 return;
             }
             
             currentX += buttonWidth + buttonSpacing;
         }
-    };
+        if (mapData) {
+            let foundCountry = null;
 
-    const handleCanvasMouseClick = (event) => {
-        const canvas = canvasRef.current;
-        if (!canvas || !mapData) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        
-        let foundCountry = null;
+            mapData.forEach(item => {
+                const countryCode = item.countryiso3code;
+                const coord = countryCoordinates[countryCode];
 
-        mapData.forEach(item => {
-            const countryCode = item.countryiso3code;
-            const coord = countryCoordinates[countryCode];
-
-            if (coord) {
-                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, canvas.width, canvas.height);
-                const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
-                const radius = mapView.zoom >= 3 ? 14 : 12;
-                if (distance <= radius) {
-                    foundCountry = { x: canvasCoord.x, y: canvasCoord.y, countryName: coord.name, value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null };
+                if (coord) {
+                    const canvasCoord = latLngToCanvas(coord.lat, coord.lng, canvas.width, canvas.height);
+                    const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
+                    const radius = mapView.zoom >= 3 ? 14 : 12;
+                    if (distance <= radius) {
+                        foundCountry = { 
+                            x: canvasCoord.x, 
+                            y: canvasCoord.y, 
+                            countryName: coord.name, 
+                            value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null 
+                        };
+                    }
                 }
-            }
-        });
-        setHoveredCountry(foundCountry);
+            });
+            setHoveredCountry(foundCountry);
+        }
     };
 
     const generateMap = async () => {
@@ -751,6 +750,7 @@ const WorldMap = () => {
 
         setLoading(true);
         setError('');
+        setHoveredCountry(null);
 
         try {
             const regionData = regions[selectedRegion];
