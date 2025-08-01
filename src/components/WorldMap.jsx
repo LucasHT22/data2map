@@ -164,11 +164,17 @@ const WorldMap = () => {
         'SL.UEM.TOTL.ZS': 'Unemployment rate (%)'
     };
 
-    const detectLabelCollisions = (labels) => {
+    const detectLabelCollisions = (labels, canvasWidth, canvasHeight) => {
         const minDistance = 50;
         const collisions = [];
+        const margin = 80;
 
         for (let i = 0; i < labels.length; i++) {
+            const label = labels[i];
+
+            if (label.x < margin || label.x > canvasWidth - margin || label.y < margin || label.y > canvasHeight - margin) {
+                collisions.push({ i, boundary: true });
+            }
             for (let j = i + 1; j < labels.length; j++) {
                 const label1 = labels[i];
                 const label2 = labels[j];
@@ -183,36 +189,77 @@ const WorldMap = () => {
         return collisions;
     };
 
-    const repositionLabels = (labels) => {
-        const maxIterations = 50;
+    const repositionLabels = (labels, canvasWidth = 800, canvasHeight = 500) => {
+        if (!labels || labels.length === 0) return labels;
+        const maxIterations = 30;
+        const maxDistance = 100;
+        const margin = 80;
         let iteration = 0;
 
+        const workingLabels = labels.map(label => ({...label}));
+
         while (iteration < maxIterations) {
-            const collisions = detectLabelCollisions(labels);
+            const collisions = detectLabelCollisions(workingLabels, canvasWidth, canvasHeight);
             if (collisions.length === 0) break;
 
+            let moved = false;
             collisions.forEach(collision => {
-                const label1 = labels[collision.i];
-                const label2 = labels[collision.j];
+                if (collision.boundary) {
+                    const label = workingLabels[collision.i];
+                    const originalDistance = Math.sqrt(Math.pow(label.x - label.originalX, 2) + Math.pow(label.y - label.originalY, 2));
+                    if (originalDistance < maxDistance) {
+                        const centerX = canvasWidth / 2;
+                        const centerY = canvasHeight / 2;
+                        const pushX = (centerX - label.x) * 0.1;
+                        const pushY = (centerY - label.y) * 0.1;
+                        
+                        const newX = label.x + pushX;
+                        const newY = label.y + pushY;
 
-                const dx = label2.x - label1.x;
-                const dy = label2.y - label1.y;
-                const distance = collision.distance;
+                        const newDistance = Math.sqrt(Math.pow(newX - label.originalX, 2) + Math.pow(newY - label.originalY, 2));
+                        
+                        if (newDistance <= maxDistance) {
+                            label.x = Math.max(margin, Math.min(canvasWidth - margin, newX));
+                            label.y = Math.max(margin, Math.min(canvasHeight - margin, newY));
+                            moved = true;
+                        }
+                    }
+                } else if (collision.j !== undefined) {
+                    const label1 = workingLabels[collision.i];
+                    const label2 = workingLabels[collision.j];
 
-                if (distance > 0) {
-                    const pushDistance = (50 - distance) / 2;
-                    const pushX = (dx / distance) * pushDistance;
-                    const pushY = (dy / distance) * pushDistance;
-                    
-                    label1.x -= pushX;
-                    label1.y -= pushY;
-                    label2.x += pushX;
-                    label2.y += pushY;
+                    const dx = label2.x - label1.x;
+                    const dy = label2.y - label1.y;
+                    const distance = collision.distance;
+
+                    if (distance > 0) {
+                        const pushDistance = (50 - distance) / 4;
+                        const pushX = (dx / distance) * pushDistance;
+                        const pushY = (dy / distance) * pushDistance;
+                        
+                        const newLabel1X = label1.x - pushX;
+                        const newLabel1Y = label1.y - pushY;
+                        const newLabel2X = label2.x + pushX;
+                        const newLabel2Y = label2.y + pushY;
+                        
+                        const dist1 = Math.sqrt(Math.pow(newLabel1X - label1.originalX, 2) + Math.pow(newLabel1Y - label1.originalY, 2));
+                        const dist2 = Math.sqrt(Math.pow(newLabel2X - label2.originalX, 2) + Math.pow(newLabel2Y - label2.originalY, 2));
+                        
+                        if (dist1 <= maxDistance && dist2 <= maxDistance) {
+                            label1.x = Math.max(margin, Math.min(canvasWidth - margin, newLabel1X));
+                            label1.y = Math.max(margin, Math.min(canvasHeight - margin, newLabel1Y));
+                            label2.x = Math.max(margin, Math.min(canvasWidth - margin, newLabel2X));
+                            label2.y = Math.max(margin, Math.min(canvasHeight - margin, newLabel2Y));
+                            moved = true;
+                        }
+                    }
                 }
             });
+            if (!moved) break;
+
             iteration++;
         }
-        return labels;
+        return workingLabels;
     };
 
     const latLngToCanvas = (lat, lng, canvasWidth, canvasHeight) => {
@@ -502,7 +549,7 @@ const WorldMap = () => {
                 }
             }
         });
-        const adjustedLabels = showLabels ? repositionLabels([...labels]) : [];
+        const adjustedLabels = showLabels ? repositionLabels([...labels], ctx.canvas.width, ctx.canvas.height) : [];
 
         points.forEach(point => {
             ctx.fillStyle = point.color;
@@ -519,29 +566,37 @@ const WorldMap = () => {
             adjustedLabels.forEach(label => {
                 const distance = Math.sqrt(Math.pow(label.x - label.originalX, 2) + Math.pow(label.y - label.originalY, 2));
 
-                if (distance > 20) {
+                if (distance > 25) {
                     ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
                     ctx.lineWidth = 1;
                     ctx.setLineDash([2, 2]);
                     ctx.beginPath();
-                    ctx.moveTo(label.originalX, label.originalY);
+                    ctx.moveTo(label.originalX, label.originalY - 35);
                     ctx.lineTo(label.x, label.y - 10);
                     ctx.stroke();
                     ctx.setLineDash([]);
                 }
 
                 ctx.font = 'bold 10px Arial';
-                const textWidth = Math.max(ctx.measureText(label.text).width, ctx.measureText(label.countryName).width);
+                const valueWidth = ctx.measureText(label.text).width;
+                ctx.font = '9px Arial';
+                const nameWidth = ctx.measureText(label.countryName).width;
+                const textWidth = Math.max(valueWidth, nameWidth);
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.lineWidth = 1;
-                ctx.fillRect(label.x - textWidth/2 - 5, label.y - 20, textWidth + 10, 25);
-                ctx.strokeRect(label.x - textWidth/2 - 5, label.y - 20, textWidth + 10, 25);
+                const labelPadding = 6;
+                const labelWidth = textWidth + (labelPadding * 2);
+                const labelHeight = 25;
+                
+                ctx.fillRect(label.x - labelWidth/2, label.y - 20, labelWidth, labelHeight);
+                ctx.strokeRect(label.x - labelWidth/2, label.y - 20, labelWidth, labelHeight);
                 
                 ctx.fillStyle = '#000';
-                ctx.font = '9px Arial';
                 ctx.textAlign = 'center';
+                
+                ctx.font = '9px Arial';
                 ctx.fillText(label.countryName, label.x, label.y - 10);
                 
                 ctx.font = 'bold 10px Arial';
