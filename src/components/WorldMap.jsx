@@ -316,7 +316,6 @@ const WorldMap = () => {
     const loadMapTiles = async () => {
         const tiles = {};
         const promises = [];
-
         const zoomLevels = [1, 2, 3];
 
         for (const zoom of zoomLevels) {
@@ -922,7 +921,7 @@ const WorldMap = () => {
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
                 <canvas ref={canvasRef} width={800} height={500} onClick={handleCanvasClick} style={{ border: '2px solid #ddd', cursor: 'pointer', maxWidth: '100%', display: 'block', margin: '0 auto', borderRadius: '5px' }} />
                 <p style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
-                    {!tilesLoaded ? 'Loading satellite map...' : selectedRegion ? 
+                    {!tilesLoaded ? 'Loading OpenStreetMap map...' : selectedRegion ? 
                         `Viewing ${regions[selectedRegion].name} at ${mapView.zoom}x zoom - Click the region button again to deselect` : 
                         'Click on region buttons in the map to select and zoom to a region'}
                 </p>
