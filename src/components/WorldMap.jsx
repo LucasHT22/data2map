@@ -555,7 +555,7 @@ const WorldMap = () => {
                         text: displayValue,
                         countryName: coord.name,
                         originalX: canvasCoord.x,
-                        originalY: canvasCoord.y,
+                        originalY: canvasCoord.y + 35,
                         countryCode
                     });
                 }
@@ -576,14 +576,16 @@ const WorldMap = () => {
 
         if (showLabels) {
             adjustedLabels.forEach(label => {
-                const distance = Math.sqrt(Math.pow(label.x - label.originalX, 2) + Math.pow(label.y - label.originalY, 2));
+                const pointX = label.originalX;
+                const pointY = label.originalY;
+                const distance = Math.sqrt(Math.pow(label.x - pointX, 2) + Math.pow(label.y - pointY, 2));
 
-                if (distance > 25) {
-                    ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([2, 2]);
+                if (distance > 15) {
+                    ctx.strokeStyle = 'rgba(80, 80, 80, 0.7)';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([3, 3]);
                     ctx.beginPath();
-                    ctx.moveTo(label.originalX, label.originalY - 35);
+                    ctx.moveTo(pointX, pointY);
                     ctx.lineTo(label.x, label.y - 10);
                     ctx.stroke();
                     ctx.setLineDash([]);
