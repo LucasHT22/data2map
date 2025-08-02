@@ -17,16 +17,10 @@ const WorldMap = () => {
 
     const regions = {
         northAmerica: {
-            name: 'North America',
-            countries: ['USA', 'CAN', 'MEX', 'GTM', 'CUB', 'DOM', 'HTI', 'JAM', 'CRI', 'PAN'],
-            color: '#ff6b6b',
-            bounds: { north: 72, south: 7, west: -168, east: -52 }
-        },
-        southAmerica: {
-            name: 'South America',
-            countries: ['BRA', 'ARG', 'CHL', 'COL', 'PER', 'URY', 'PRY', 'BOL', 'ECU', 'VEN', 'GUY', 'SUR'],
-            color: '#4ecdc4',
-            bounds: { north: 13, south: -56, west: -82, east: -33 }
+            name: 'Americas',
+            countries: ['USA', 'CAN', 'MEX', 'GTM', 'CUB', 'DOM', 'HTI', 'JAM', 'CRI', 'PAN', 'BRA', 'ARG', 'CHL', 'COL', 'PER', 'URY', 'PRY', 'BOL', 'ECU', 'VEN', 'GUY', 'SUR'],
+            color: '#e74c3c',
+            bounds: { north: 72, south: -56, west: -168, east: -33 }
         },
         europe: {
             name: 'Europe',
@@ -576,21 +570,6 @@ const WorldMap = () => {
 
         if (showLabels) {
             adjustedLabels.forEach(label => {
-                const pointX = label.originalX;
-                const pointY = label.originalY;
-                const distance = Math.sqrt(Math.pow(label.x - pointX, 2) + Math.pow(label.y - pointY, 2));
-
-                if (distance > 15) {
-                    ctx.strokeStyle = 'rgba(80, 80, 80, 0.7)';
-                    ctx.lineWidth = 1.5;
-                    ctx.setLineDash([3, 3]);
-                    ctx.beginPath();
-                    ctx.moveTo(pointX, pointY);
-                    ctx.lineTo(label.x, label.y - 10);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-
                 ctx.font = 'bold 10px Arial';
                 const valueWidth = ctx.measureText(label.text).width;
                 ctx.font = '9px Arial';
