@@ -438,18 +438,32 @@ const WorldMap = () => {
             const offsetX = width / 2 - centerTileX * scaledTileSize;
             const offsetY = height / 2 - centerTileY * scaledTileSize;
 
-            for (let x = 0; x < tilesPerRow; x++) {
-                for (let y = 0; y < tilesPerRow; y++) {
-                    const tileKey = `${tileZoom}-${x}-${y}`;
+            const tilesNeededX = Math.ceil(width / scaledTileSize) + 2;
+            const tilesNeededY = Math.ceil(height / scaledTileSize) + 2;
+
+            const startTileX = Math.floor(-offsetX / scaledTileSize);
+            const startTileY = Math.floor(-offsetY / scaledTileSize);
+
+            for (let x = 0; x < tilesNeededX; x++) {
+                for (let y = 0; y < tilesNeededY; y++) {
+                    let tileX = (startTileX + x) % tilesPerRow;
+                    let tileY = startTileY + y;
+
+                    if (tileX < 0) tileX += tilesPerRow;
+
+                    if (tileY < 0) tileY = 0;
+                    if (tileY >= tilesPerRow) tileY = tilesPerRow - 1;
+
+                    const tileKey = `${tileZoom}-${tileX}-${tileY}`;
                     const tile = mapTiles[tileKey];
                     
                     if (tile) {
-                        const tileX = offsetX + x * scaledTileSize;
-                        const tileY = offsetY + y * scaledTileSize;
+                        const drawX = offsetX + (startTileX + x) * scaledTileSize;
+                        const drawY = offsetY + (startTileY + y) * scaledTileSize;
                         
-                        if (tileX + scaledTileSize > 0 && tileX < width && 
-                            tileY + scaledTileSize > 0 && tileY < height) {
-                            ctx.drawImage(tile, tileX, tileY, scaledTileSize, scaledTileSize);
+                        if (drawX + scaledTileSize > 0 && drawX < width && 
+                            drawY + scaledTileSize > 0 && drawY < height) {
+                            ctx.drawImage(tile, drawX, drawY, scaledTileSize, scaledTileSize);
                         }
                     }
                 }
@@ -457,20 +471,35 @@ const WorldMap = () => {
         }
 
         Object.entries(countryCoordinates).forEach(([code, coord]) => {
-            const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
-            
-            if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && 
-                canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
-                
-                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                const radius = mapView.zoom >= 3 ? 6 : 4;
-                ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.stroke();
+            const positions = [];
+
+            const originalPos = latLngToCanvas(coord.lat, coord.lng, width, height);
+            positions.push(originalPos);
+
+            if (mapView.zoom <= 2) {
+                const leftPos = latLngToCanvas(coord.lat, coord.lng - 360, width, height);
+                if (leftPos.x >= -50 && leftPos.x <= width + 50) {
+                    positions.push(leftPos);
+                }
+    
+                const rightPos = latLngToCanvas(coord.lat, coord.lng + 360, width, height);
+                if (rightPos.x >= -50 && rightPos.x <= width + 50) {
+                    positions.push(rightPos);
+                }
             }
+
+            positions.forEach(canvasCoord => {
+                if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
+                    ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    const radius = mapView.zoom >= 3 ? 6 : 4;
+                    ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            });
         });
 
         if (selectedRegion && mapData) {
@@ -480,18 +509,35 @@ const WorldMap = () => {
             region.countries.forEach(countryCode => {
                 const coord = countryCoordinates[countryCode];
                 if (coord) {
-                    const canvasCoord = latLngToCanvas(coord.lat, coord.lng, width, height);
-                    if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
+                    const positions = [];
+
+                    const originalPos = latLngToCanvas(coord.lat, coord.lng, width, height);
+                    positions.push(originalPos);
+
+                    if (mapView.zoom <= 2) {
+                        const leftPos = latLngToCanvas(coord.lat, coord.lng - 360, width, height);
+                        if (leftPos.x >= -50 && leftPos.x <= width + 50) {
+                            positions.push(leftPos);
+                        }
                         
-                        ctx.fillStyle = region.color;
-                        ctx.strokeStyle = '#333';
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        const radius = mapView.zoom >= 3 ? 10 : 8;
-                        ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
-                        ctx.fill();
-                        ctx.stroke();
+                        const rightPos = latLngToCanvas(coord.lat, coord.lng + 360, width, height);
+                        if (rightPos.x >= -50 && rightPos.x <= width + 50) {
+                            positions.push(rightPos);
+                        }
                     }
+                    
+                    positions.forEach(canvasCoord => {
+                        if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
+                            ctx.fillStyle = region.color;
+                            ctx.strokeStyle = '#333';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            const radius = mapView.zoom >= 3 ? 10 : 8;
+                            ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                    });
                 }
             });
         }
