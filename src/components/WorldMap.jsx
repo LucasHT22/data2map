@@ -313,6 +313,20 @@ const WorldMap = () => {
         setMapView({centerLat: 0, centerLng: 0, zoom: 1});
     };
 
+    const handleRegionChange = (regionKey) => {
+        if (regionKey === '') {
+            setSelectedRegion(null);
+            resetView();
+        } else {
+            setSelectedRegion(regionKey);
+            zoomToRegion(regionKey);
+        }
+        setMapData(null);
+        setDownloadUrl('');
+        setError('');
+        setHoveredCountry(null);
+    };
+
     const loadMapTiles = async () => {
         const tiles = {};
         const promises = [];
@@ -492,7 +506,6 @@ const WorldMap = () => {
             drawToolTip(ctx, hoveredCountry);
         }
 
-        drawRegionButtons(ctx, width, height);
         drawHeader(ctx, width);
     };
 
@@ -649,47 +662,6 @@ const WorldMap = () => {
         }
     };
 
-    const drawRegionButtons = (ctx, width, height) => {
-        const buttonY = height - 50;
-        const buttonHeight = 30;
-        const buttonSpacing = 8;
-        
-        const buttonWidths = {};
-        let totalWidth = 0;
-        
-        Object.entries(regions).forEach(([key, region]) => {
-            ctx.font = '12px Arial';
-            const textWidth = ctx.measureText(region.name).width;
-            const buttonWidth = textWidth + 20;
-            buttonWidths[key] = buttonWidth;
-            totalWidth += buttonWidth;
-        });
-        
-        totalWidth += (Object.keys(regions).length - 1) * buttonSpacing;
-        let currentX = (width - totalWidth) / 2;
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(0, buttonY - 5, width, 40);
-
-        Object.entries(regions).forEach(([key, region]) => {
-            const buttonWidth = buttonWidths[key];
-            const isSelected = selectedRegion === key;
-            
-            ctx.fillStyle = isSelected ? region.color : '#f0f0f0';
-            ctx.strokeStyle = isSelected ? '#333' : '#999';
-            ctx.lineWidth = isSelected ? 2 : 1;
-            ctx.fillRect(currentX, buttonY, buttonWidth, buttonHeight);
-            ctx.strokeRect(currentX, buttonY, buttonWidth, buttonHeight);
-            
-            ctx.fillStyle = isSelected ? '#fff' : '#333';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(region.name, currentX + buttonWidth/2, buttonY + 20);
-            
-            currentX += buttonWidth + buttonSpacing;
-        });
-    };
-
     const drawLegend = (ctx, min, max) => {
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
@@ -783,12 +755,7 @@ const WorldMap = () => {
                     const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
                     const radius = mapView.zoom >= 3 ? 14 : 12;
                     if (distance <= radius) {
-                        foundCountry = { 
-                            x: canvasCoord.x, 
-                            y: canvasCoord.y, 
-                            countryName: coord.name, 
-                            value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null 
-                        };
+                        foundCountry = { x: canvasCoord.x, y: canvasCoord.y, countryName: coord.name, value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null };
                     }
                 }
             });
@@ -873,6 +840,18 @@ const WorldMap = () => {
                         {['2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
+                    </select>
+                </div>
+                
+                <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
+                        Region:
+                    </label>
+                    <select value={selectedRegion || ''} onChange={(e) => handleRegionChange(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
+                    <option value="">Select a region...</option>
+                        {Object.entries(regions).map(([key, region]) => (
+                            <option key={key} value={key}>{region.name}</option>
+                        ))}                        
                     </select>
                 </div>
 
