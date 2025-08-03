@@ -158,100 +158,55 @@ const WorldMap = () => {
         'SL.UEM.TOTL.ZS': 'Unemployment rate (%)'
     };
 
-    const detectLabelCollisions = (labels, canvasWidth, canvasHeight) => {
-        const minDistance = 50;
-        const collisions = [];
-        const margin = 80;
-
-        for (let i = 0; i < labels.length; i++) {
-            const label = labels[i];
-
-            if (label.x < margin || label.x > canvasWidth - margin || label.y < margin || label.y > canvasHeight - margin) {
-                collisions.push({ i, boundary: true });
-            }
-            for (let j = i + 1; j < labels.length; j++) {
-                const label1 = labels[i];
-                const label2 = labels[j];
-
-                const distance = Math.sqrt(Math.pow(label1.x - label2.x, 2) + Math.pow(label1.y - label2.y, 2));
-
-                if (distance < minDistance) {
-                    collisions.push({ i, j, distance });
-                }
-            }
-        }
-        return collisions;
-    };
-
     const repositionLabels = (labels, canvasWidth = 800, canvasHeight = 500) => {
-        if (!labels || labels.length === 0) return labels;
-        const maxIterations = 30;
-        const maxDistance = 100;
-        const margin = 80;
-        let iteration = 0;
-
+        if (!labels?.length) return labels;
+        
         const workingLabels = labels.map(label => ({...label}));
-
-        while (iteration < maxIterations) {
-            const collisions = detectLabelCollisions(workingLabels, canvasWidth, canvasHeight);
-            if (collisions.length === 0) break;
-
+        const minDistance = 50, maxIterations = 30, maxDistance = 100, margin = 80;
+        
+        for (let iteration = 0; iteration < maxIterations; iteration++) {
             let moved = false;
-            collisions.forEach(collision => {
-                if (collision.boundary) {
-                    const label = workingLabels[collision.i];
-                    const originalDistance = Math.sqrt(Math.pow(label.x - label.originalX, 2) + Math.pow(label.y - label.originalY, 2));
-                    if (originalDistance < maxDistance) {
-                        const centerX = canvasWidth / 2;
-                        const centerY = canvasHeight / 2;
-                        const pushX = (centerX - label.x) * 0.1;
-                        const pushY = (centerY - label.y) * 0.1;
-                        
-                        const newX = label.x + pushX;
-                        const newY = label.y + pushY;
-
-                        const newDistance = Math.sqrt(Math.pow(newX - label.originalX, 2) + Math.pow(newY - label.originalY, 2));
-                        
-                        if (newDistance <= maxDistance) {
-                            label.x = Math.max(margin, Math.min(canvasWidth - margin, newX));
-                            label.y = Math.max(margin, Math.min(canvasHeight - margin, newY));
-                            moved = true;
-                        }
+            
+            for (let i = 0; i < workingLabels.length; i++) {
+                const label = workingLabels[i];
+                
+                if (label.x < margin || label.x > canvasWidth - margin || label.y < margin || label.y > canvasHeight - margin) {
+                    const centerX = canvasWidth / 2, centerY = canvasHeight / 2;
+                    const pushX = (centerX - label.x) * 0.1, pushY = (centerY - label.y) * 0.1;
+                    const newX = Math.max(margin, Math.min(canvasWidth - margin, label.x + pushX));
+                    const newY = Math.max(margin, Math.min(canvasHeight - margin, label.y + pushY));
+                    
+                    if (Math.sqrt(Math.pow(newX - label.originalX, 2) + Math.pow(newY - label.originalY, 2)) <= maxDistance) {
+                        label.x = newX; label.y = newY; moved = true;
                     }
-                } else if (collision.j !== undefined) {
-                    const label1 = workingLabels[collision.i];
-                    const label2 = workingLabels[collision.j];
-
-                    const dx = label2.x - label1.x;
-                    const dy = label2.y - label1.y;
-                    const distance = collision.distance;
-
-                    if (distance > 0) {
-                        const pushDistance = (50 - distance) / 4;
-                        const pushX = (dx / distance) * pushDistance;
-                        const pushY = (dy / distance) * pushDistance;
+                }
+                
+                for (let j = i + 1; j < workingLabels.length; j++) {
+                    const label2 = workingLabels[j];
+                    const distance = Math.sqrt(Math.pow(label.x - label2.x, 2) + Math.pow(label.y - label2.y, 2));
+                    
+                    if (distance < minDistance && distance > 0) {
+                        const pushDistance = (minDistance - distance) / 4;
+                        const dx = (label2.x - label.x) / distance, dy = (label2.y - label.y) / distance;
+                        const pushX = dx * pushDistance, pushY = dy * pushDistance;
                         
-                        const newLabel1X = label1.x - pushX;
-                        const newLabel1Y = label1.y - pushY;
-                        const newLabel2X = label2.x + pushX;
-                        const newLabel2Y = label2.y + pushY;
+                        const newLabel1X = Math.max(margin, Math.min(canvasWidth - margin, label.x - pushX));
+                        const newLabel1Y = Math.max(margin, Math.min(canvasHeight - margin, label.y - pushY));
+                        const newLabel2X = Math.max(margin, Math.min(canvasWidth - margin, label2.x + pushX));
+                        const newLabel2Y = Math.max(margin, Math.min(canvasHeight - margin, label2.y + pushY));
                         
-                        const dist1 = Math.sqrt(Math.pow(newLabel1X - label1.originalX, 2) + Math.pow(newLabel1Y - label1.originalY, 2));
+                        const dist1 = Math.sqrt(Math.pow(newLabel1X - label.originalX, 2) + Math.pow(newLabel1Y - label.originalY, 2));
                         const dist2 = Math.sqrt(Math.pow(newLabel2X - label2.originalX, 2) + Math.pow(newLabel2Y - label2.originalY, 2));
                         
                         if (dist1 <= maxDistance && dist2 <= maxDistance) {
-                            label1.x = Math.max(margin, Math.min(canvasWidth - margin, newLabel1X));
-                            label1.y = Math.max(margin, Math.min(canvasHeight - margin, newLabel1Y));
-                            label2.x = Math.max(margin, Math.min(canvasWidth - margin, newLabel2X));
-                            label2.y = Math.max(margin, Math.min(canvasHeight - margin, newLabel2Y));
+                            label.x = newLabel1X; label.y = newLabel1Y;
+                            label2.x = newLabel2X; label2.y = newLabel2Y;
                             moved = true;
                         }
                     }
                 }
-            });
+            }
             if (!moved) break;
-
-            iteration++;
         }
         return workingLabels;
     };
@@ -290,22 +245,13 @@ const WorldMap = () => {
             if (centerLng > 180) centerLng -= 360;
         }
 
-        const latRange = bounds.north - bounds.south;
-        const lngRange = bounds.west > bounds.east ? (360 - bounds.west + bounds.east) : (bounds.east - bounds.west);
-        
-        const maxRange = Math.max(latRange, lngRange);
-        let zoom = 1;
-        if (maxRange < 180) zoom = 2;
-        if (maxRange < 90) zoom = 3;
-        if (maxRange < 45) zoom = 4;
-        if (maxRange < 22) zoom = 5;
+        const maxRange = Math.max(bounds.north - bounds.south, bounds.west > bounds.east ? (360 - bounds.west + bounds.east) : (bounds.east - bounds.west));
+        const zoom = maxRange < 22 ? 5 : maxRange < 45 ? 4 : maxRange < 90 ? 3 : maxRange < 180 ? 2 : 1;
 
         setMapView({centerLat, centerLng, zoom});
     };
 
-    const resetView = () => {
-        setMapView({centerLat: 0, centerLng: 0, zoom: 1});
-    };
+    const resetView = () => setMapView({centerLat: 0, centerLng: 0, zoom: 1});
 
     const handleRegionChange = (regionKey) => {
         if (regionKey === '') {
@@ -315,18 +261,14 @@ const WorldMap = () => {
             setSelectedRegion(regionKey);
             zoomToRegion(regionKey);
         }
-        setMapData(null);
-        setDownloadUrl('');
+        [setMapData, setDownloadUrl, setError, setHoveredCountry].forEach(setter => setter(null));
         setError('');
-        setHoveredCountry(null);
     };
 
     const loadMapTiles = async () => {
-        const tiles = {};
-        const promises = [];
-        const zoomLevels = [1, 2, 3];
+        const tiles = {}, promises = [];
 
-        for (const zoom of zoomLevels) {
+        for (const zoom of [1, 2, 3]) {
             const maxTiles = Math.pow(2, zoom);
             for (let x = 0; x < maxTiles; x++) {
                 for (let y = 0; y < maxTiles; y++) {
@@ -353,63 +295,33 @@ const WorldMap = () => {
                 }
             }
         }
-        
-        try {
-            await Promise.all(promises);
-            setMapTiles(tiles);
-            setTilesLoaded(true);
-        } catch (error) {
-            console.warn('Some tiles failed to load, using fallback');
-            setMapTiles(tiles);
-            setTilesLoaded(true);
-        }
+        await Promise.all(promises).catch(() => console.warn('Some tiles failed to load, using fallback'));
+        setMapTiles(tiles);
+        setTilesLoaded(true);
     };
 
-    useEffect(() => {
-        loadMapTiles();
-    }, []);
+    useEffect(() => { loadMapTiles(); }, []);
 
-    useEffect(() => {
-        if (tilesLoaded) {
-            drawWorldMap();
-        }
-    }, [tilesLoaded, selectedRegion, mapData, mapView, hoveredCountry]);
+    useEffect(() => { if (tilesLoaded) drawWorldMap(); }, [tilesLoaded, selectedRegion, mapData, mapView, hoveredCountry]);
 
     const fetchWorldBankData = async (indicator, year, countries = null) => {
-        let url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?date=${year}&format=json&per_page=300`;
-        
-        if (countries && countries.length > 0) {
-            const countryList = countries.join(';');
-            url = `https://api.worldbank.org/v2/country/${countryList}/indicator/${indicator}?date=${year}&format=json&per_page=300`;
-        }
+        const countryList = countries?.length ? countries.join(';') : 'all';
+        const url = `https://api.worldbank.org/v2/country/${countryList}/indicator/${indicator}?date=${year}&format=json&per_page=300`;
 
         try {
             const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
             const data = await response.json();
-            
-            if (!data || data.length < 2 || !data[1]) {
-                throw new Error('Data not found');
-            }
+            if (!data || data.length < 2 || !data[1]) throw new Error('Data not found');
             
             const filteredData = data[1].filter(item => 
-                item && 
-                item.value !== null && 
-                item.value !== undefined && 
-                !isNaN(item.value) &&
-                item.countryiso3code
+                item?.value !== null && !isNaN(item.value) && item.countryiso3code
             );
             
-            if (filteredData.length === 0) {
-                throw new Error('No valid data available for the selected parameters');
-            }
-            
+            if (filteredData.length === 0) throw new Error('No valid data available for the selected parameters');
             return filteredData;
         } catch (error) {
-            console.error('API Error:', error);
             throw new Error(`Failed to fetch data: ${error.message}`);
         }
     };
@@ -425,11 +337,10 @@ const WorldMap = () => {
         ctx.fillRect(0, 0, width, height);
 
         if (tilesLoaded && Object.keys(mapTiles).length > 0) {
-            const tileSize = 256;
             const tileZoom = Math.min(3, Math.max(1, Math.floor(mapView.zoom)));
             const tilesPerRow = Math.pow(2, tileZoom);
             const scale = Math.pow(2, mapView.zoom - tileZoom);
-            const scaledTileSize = tileSize * scale;
+            const scaledTileSize = 256 * scale;
             
             const centerTileX = (mapView.centerLng + 180) / 360 * tilesPerRow;
             const centerLatRad = mapView.centerLat * Math.PI / 180;
@@ -437,32 +348,23 @@ const WorldMap = () => {
             
             const offsetX = width / 2 - centerTileX * scaledTileSize;
             const offsetY = height / 2 - centerTileY * scaledTileSize;
-
             const tilesNeededX = Math.ceil(width / scaledTileSize) + 2;
             const tilesNeededY = Math.ceil(height / scaledTileSize) + 2;
-
             const startTileX = Math.floor(-offsetX / scaledTileSize);
             const startTileY = Math.floor(-offsetY / scaledTileSize);
 
             for (let x = 0; x < tilesNeededX; x++) {
                 for (let y = 0; y < tilesNeededY; y++) {
                     let tileX = (startTileX + x) % tilesPerRow;
-                    let tileY = startTileY + y;
-
+                    let tileY = Math.max(0, Math.min(tilesPerRow - 1, startTileY + y));
                     if (tileX < 0) tileX += tilesPerRow;
 
-                    if (tileY < 0) tileY = 0;
-                    if (tileY >= tilesPerRow) tileY = tilesPerRow - 1;
-
-                    const tileKey = `${tileZoom}-${tileX}-${tileY}`;
-                    const tile = mapTiles[tileKey];
-                    
+                    const tile = mapTiles[`${tileZoom}-${tileX}-${tileY}`];
                     if (tile) {
                         const drawX = offsetX + (startTileX + x) * scaledTileSize;
                         const drawY = offsetY + (startTileY + y) * scaledTileSize;
                         
-                        if (drawX + scaledTileSize > 0 && drawX < width && 
-                            drawY + scaledTileSize > 0 && drawY < height) {
+                        if (drawX + scaledTileSize > 0 && drawX < width && drawY + scaledTileSize > 0 && drawY < height) {
                             ctx.drawImage(tile, drawX, drawY, scaledTileSize, scaledTileSize);
                         }
                     }
@@ -470,136 +372,91 @@ const WorldMap = () => {
             }
         }
 
-        Object.entries(countryCoordinates).forEach(([code, coord]) => {
-            const positions = [];
+        const drawCountryPoints = (countries, color, isSelected = false) => {
+            countries.forEach(code => {
+                const coord = countryCoordinates[code];
+                if (!coord) return;
 
-            const originalPos = latLngToCanvas(coord.lat, coord.lng, width, height);
-            positions.push(originalPos);
+                const positions = [latLngToCanvas(coord.lat, coord.lng, width, height)];
+                if (mapView.zoom <= 2) {
+                    positions.push(
+                        latLngToCanvas(coord.lat, coord.lng - 360, width, height),
+                        latLngToCanvas(coord.lat, coord.lng + 360, width, height)
+                    );
+                }
 
-            if (mapView.zoom <= 2) {
-                const leftPos = latLngToCanvas(coord.lat, coord.lng - 360, width, height);
-                if (leftPos.x >= -50 && leftPos.x <= width + 50) {
-                    positions.push(leftPos);
-                }
-    
-                const rightPos = latLngToCanvas(coord.lat, coord.lng + 360, width, height);
-                if (rightPos.x >= -50 && rightPos.x <= width + 50) {
-                    positions.push(rightPos);
-                }
-            }
-
-            positions.forEach(canvasCoord => {
-                if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
-                    ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-                    ctx.strokeStyle = '#333';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    const radius = mapView.zoom >= 3 ? 6 : 4;
-                    ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.stroke();
-                }
+                positions.forEach(pos => {
+                    if (pos.x >= -10 && pos.x <= width + 10 && pos.y >= -10 && pos.y <= height + 10) {
+                        ctx.fillStyle = isSelected ? color : 'rgba(200, 200, 200, 0.8)';
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = isSelected ? 2 : 1;
+                        ctx.beginPath();
+                        const radius = isSelected ? (mapView.zoom >= 3 ? 10 : 8) : (mapView.zoom >= 3 ? 6 : 4);
+                        ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
             });
+        };
+
+        Object.values(countryCoordinates).forEach(coord => {
+            const pos = latLngToCanvas(coord.lat, coord.lng, width, height);
+            if (pos.x >= -10 && pos.x <= width + 10 && pos.y >= -10 && pos.y <= height + 10) {
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, mapView.zoom >= 3 ? 6 : 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            }
         });
 
         if (selectedRegion && mapData) {
             drawDataVisualization(ctx, mapData);
         } else if (selectedRegion) {
             const region = regions[selectedRegion];
-            region.countries.forEach(countryCode => {
-                const coord = countryCoordinates[countryCode];
-                if (coord) {
-                    const positions = [];
-
-                    const originalPos = latLngToCanvas(coord.lat, coord.lng, width, height);
-                    positions.push(originalPos);
-
-                    if (mapView.zoom <= 2) {
-                        const leftPos = latLngToCanvas(coord.lat, coord.lng - 360, width, height);
-                        if (leftPos.x >= -50 && leftPos.x <= width + 50) {
-                            positions.push(leftPos);
-                        }
-                        
-                        const rightPos = latLngToCanvas(coord.lat, coord.lng + 360, width, height);
-                        if (rightPos.x >= -50 && rightPos.x <= width + 50) {
-                            positions.push(rightPos);
-                        }
-                    }
-                    
-                    positions.forEach(canvasCoord => {
-                        if (canvasCoord.x >= -10 && canvasCoord.x <= width + 10 && canvasCoord.y >= -10 && canvasCoord.y <= height + 10) {
-                            ctx.fillStyle = region.color;
-                            ctx.strokeStyle = '#333';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            const radius = mapView.zoom >= 3 ? 10 : 8;
-                            ctx.arc(canvasCoord.x, canvasCoord.y, radius, 0, 2 * Math.PI);
-                            ctx.fill();
-                            ctx.stroke();
-                        }
-                    });
-                }
-            });
+            drawCountryPoints(region.countries, region.color, true);
         }
 
-        if (hoveredCountry) {
-            drawToolTip(ctx, hoveredCountry);
-        }
-
+        if (hoveredCountry) drawToolTip(ctx, hoveredCountry);
         drawHeader(ctx, width);
     };
 
     const drawDataVisualization = (ctx, data) => {
-        if (!data || data.length === 0) return;
+        if (!data?.length) return;
         
         const values = data.map(d => d.value).filter(v => v !== null && !isNaN(v));
-        if (values.length === 0) return;
+        if (!values.length) return;
 
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const range = max - min;
+        const min = Math.min(...values), max = Math.max(...values), range = max - min;
 
-        const labels = [];
-        const points = [];
+        const labels = [], points = [];
 
         data.forEach(item => {
-            const countryCode = item.countryiso3code;
-            const coord = countryCoordinates[countryCode];
-            
-            if (coord && item.value !== null && !isNaN(item.value)) {
-                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
-                
-                if (canvasCoord.x >= -20 && canvasCoord.x <= ctx.canvas.width + 20 && 
-                    canvasCoord.y >= -20 && canvasCoord.y <= ctx.canvas.height + 20) {
-                    
-                    const normalized = range > 0 ? (item.value - min) / range : 0;
-                    const intensity = Math.floor(normalized * 255);
-                    const color = `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`;
-                    
-                    points.push({
-                        x: canvasCoord.x,
-                        y: canvasCoord.y,
-                        color,
-                        countryCode,
-                        coord,
-                        item
-                    });
+            const coord = countryCoordinates[item.countryiso3code];
+            if (!coord || item.value === null || isNaN(item.value)) return;
 
-                    const displayValue = typeof item.value === 'number' ? 
-                        item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : 
-                        item.value;
-                    
-                    labels.push({
-                        x: canvasCoord.x,
-                        y: canvasCoord.y + 35,
-                        text: displayValue,
-                        countryName: coord.name,
-                        originalX: canvasCoord.x,
-                        originalY: canvasCoord.y + 35,
-                        countryCode
-                    });
-                }
-            }
+            const canvasCoord = latLngToCanvas(coord.lat, coord.lng, ctx.canvas.width, ctx.canvas.height);
+            if (canvasCoord.x < -20 || canvasCoord.x > ctx.canvas.width + 20 || canvasCoord.y < -20 || canvasCoord.y > ctx.canvas.height + 20) return;
+            
+            const normalized = range > 0 ? (item.value - min) / range : 0;
+            const intensity = Math.floor(normalized * 255);
+            
+            points.push({
+                x: canvasCoord.x, y: canvasCoord.y,
+                color: `rgb(${255 - intensity}, ${Math.floor(255 - intensity * 0.5)}, 255)`,
+                item, coord
+            });
+
+            labels.push({
+                x: canvasCoord.x, y: canvasCoord.y + 35,
+                text: item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }),
+                countryName: coord.name,
+                originalX: canvasCoord.x, originalY: canvasCoord.y + 35,
+                countryCode: item.countryiso3code
+            });
         });
         const adjustedLabels = showLabels ? repositionLabels([...labels], ctx.canvas.width, ctx.canvas.height) : [];
 
@@ -621,23 +478,18 @@ const WorldMap = () => {
                 ctx.font = '9px Arial';
                 const nameWidth = ctx.measureText(label.countryName).width;
                 const textWidth = Math.max(valueWidth, nameWidth);
+                const labelPadding = 6, labelWidth = textWidth + (labelPadding * 2), labelHeight = 25;
 
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.lineWidth = 1;
-                const labelPadding = 6;
-                const labelWidth = textWidth + (labelPadding * 2);
-                const labelHeight = 25;
-                
                 ctx.fillRect(label.x - labelWidth/2, label.y - 20, labelWidth, labelHeight);
                 ctx.strokeRect(label.x - labelWidth/2, label.y - 20, labelWidth, labelHeight);
                 
                 ctx.fillStyle = '#000';
                 ctx.textAlign = 'center';
-                
                 ctx.font = '9px Arial';
                 ctx.fillText(label.countryName, label.x, label.y - 10);
-                
                 ctx.font = 'bold 10px Arial';
                 ctx.fillText(label.text, label.x, label.y - 2);
             });
@@ -645,27 +497,22 @@ const WorldMap = () => {
         drawLegend(ctx, min, max);
     };
 
-    const drawToolTip = (ctx, countryData) => {
-        const { x, y, countryName, value } = countryData;
-
+    const drawToolTip = (ctx, { x, y, countryName, value }) => {
+        const text1 = countryName, text2 = value ? `${indicators[indicator]}: ${value}` : 'No data available';
         ctx.font = '12px Arial';
-        const text1 = countryName;
-        const text2 = value ? `${indicators[indicator]}: ${value}` : 'No data available';
-        
         const maxWidth = Math.max(ctx.measureText(text1).width, ctx.measureText(text2).width);
-        const tooltipWidth = maxWidth + 20;
-        const tooltipHeight = 40;
+        const tooltipWidth = maxWidth + 20, tooltipHeight = 40;
         
-        let tooltipX = x + 15;
-        let tooltipY = y - 25;
+        let tooltipX = x + 15, tooltipY = y - 25;
         
         if (tooltipX + tooltipWidth > ctx.canvas.width) tooltipX = x - tooltipWidth - 15;
         if (tooltipY < 0) tooltipY = y + 15;
+        
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'left';
+        ctx.font = 'bold 12px Arial';
         ctx.fillText(text1, tooltipX + 10, tooltipY + 15);
         ctx.font = '11px Arial';
         ctx.fillText(text2, tooltipX + 10, tooltipY + 30);
@@ -674,28 +521,16 @@ const WorldMap = () => {
     const drawHeader = (ctx, width) => {
         ctx.fillStyle = 'rgba(255, 255, 255, 1)';
         ctx.fillRect(0, 0, width, 80);
-        
         ctx.fillStyle = '#333';
         ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`World Socioeconomic ${indicators[indicator]} - ${year}`, width/2, 30);
-
-        if (selectedRegion) {
-            ctx.font = '16px Arial';
-            ctx.fillText(`Selected: ${regions[selectedRegion].name} (Zoom: ${mapView.zoom}x)`, width/2, 55);
-        } else {
-            ctx.font = '14px Arial';
-            ctx.fillText('Click on region buttons to select and zoom to a region', width/2, 55);
-        }
+        ctx.font = selectedRegion ? '16px Arial' : '14px Arial';
+        ctx.fillText(selectedRegion ? `Selected: ${regions[selectedRegion].name} (Zoom: ${mapView.zoom}x)` : 'Click on region buttons to select and zoom to a region', width/2, 55);
     };
 
     const drawLegend = (ctx, min, max) => {
-        const width = ctx.canvas.width;
-        const height = ctx.canvas.height;
-        const legendX = width - 220;
-        const legendY = height - 80;
-        const legendWidth = 180;
-        const legendHeight = 20;
+        const legendX = ctx.canvas.width - 220, legendY = ctx.canvas.height - 80;
+        const legendWidth = 180, legendHeight = 20;
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.fillRect(legendX - 10, legendY - 10, legendWidth + 20, 50);
@@ -706,7 +541,6 @@ const WorldMap = () => {
         
         ctx.fillStyle = gradient;
         ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
-        
         ctx.strokeStyle = '#000';
         ctx.strokeRect(legendX, legendY, legendWidth, legendHeight);
         
@@ -723,70 +557,42 @@ const WorldMap = () => {
         if (!canvas) return;
         
         const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const x = event.clientX - rect.left, y = event.clientY - rect.top;
         const { width, height } = canvas;
 
-        const buttonY = height - 50;
-        const buttonHeight = 30;
-        const buttonSpacing = 8;
-        
+        const buttonY = height - 50, buttonHeight = 30, buttonSpacing = 8;
         const ctx = canvas.getContext('2d');
         ctx.font = '12px Arial';
         
-        const buttonWidths = {};
-        let totalWidth = 0;
-        
-        Object.entries(regions).forEach(([key, region]) => {
-            const textWidth = ctx.measureText(region.name).width;
-            const buttonWidth = textWidth + 20;
-            buttonWidths[key] = buttonWidth;
-            totalWidth += buttonWidth;
-        });
-        
-        totalWidth += (Object.keys(regions).length - 1) * buttonSpacing;
+        const buttonWidths = Object.fromEntries(Object.entries(regions).map(([key, region]) => [key, ctx.measureText(region.name).width + 20]));
+        const totalWidth = Object.values(buttonWidths).reduce((sum, width) => sum + width, 0) + (Object.keys(regions).length - 1) * buttonSpacing;
         let currentX = (width - totalWidth) / 2;
 
         for (const [key, region] of Object.entries(regions)) {
             const buttonWidth = buttonWidths[key];
             
-            if (x >= currentX && x <= currentX + buttonWidth && 
-                y >= buttonY && y <= buttonY + buttonHeight) {
-                
-                const isCurrentlySelected = selectedRegion === key;
-                
-                if (isCurrentlySelected) {
-                    setSelectedRegion(null);
-                    resetView();
-                } else {
-                    setSelectedRegion(key);
-                    zoomToRegion(key);
-                }
-                setMapData(null);
-                setDownloadUrl('');
-                setHoveredCountry(null);
+            if (x >= currentX && x <= currentX + buttonWidth && y >= buttonY && y <= buttonY + buttonHeight) {
+                handleRegionChange(selectedRegion === key ? '' : key);
                 return;
             }
             
             currentX += buttonWidth + buttonSpacing;
         }
         if (mapData) {
-            let foundCountry = null;
-
-            mapData.forEach(item => {
-                const countryCode = item.countryiso3code;
-                const coord = countryCoordinates[countryCode];
-
-                if (coord) {
-                    const canvasCoord = latLngToCanvas(coord.lat, coord.lng, canvas.width, canvas.height);
-                    const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
-                    const radius = mapView.zoom >= 3 ? 14 : 12;
-                    if (distance <= radius) {
-                        foundCountry = { x: canvasCoord.x, y: canvasCoord.y, countryName: coord.name, value: item.value ? item.value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : null };
-                    }
-                }
+            const foundCountry = mapData.find(item => {
+                const coord = countryCoordinates[item.countryiso3code];
+                if (!coord) return false;
+                const canvasCoord = latLngToCanvas(coord.lat, coord.lng, canvas.width, canvas.height);
+                const distance = Math.sqrt(Math.pow(x - canvasCoord.x, 2) + Math.pow(y - canvasCoord.y, 2));
+                return distance <= (mapView.zoom >= 3 ? 14 : 12);
             });
-            setHoveredCountry(foundCountry);
+
+            setHoveredCountry(foundCountry ? {
+                x: latLngToCanvas(countryCoordinates[foundCountry.countryiso3code].lat, countryCoordinates[foundCountry.countryiso3code].lng, canvas.width, canvas.height).x,
+                y: latLngToCanvas(countryCoordinates[foundCountry.countryiso3code].lat, countryCoordinates[foundCountry.countryiso3code].lng, canvas.width, canvas.height).y,
+                countryName: countryCoordinates[foundCountry.countryiso3code].name,
+                value: foundCountry.value?.toLocaleString('en-US', { maximumFractionDigits: 1 })
+            } : null);
         }
     };
 
@@ -795,34 +601,18 @@ const WorldMap = () => {
             setError('Please select a region first');
             return;
         }
-
         setLoading(true);
         setError('');
         setHoveredCountry(null);
-
         try {
-            const regionData = regions[selectedRegion];
-            const data = await fetchWorldBankData(indicator, year, regionData.countries);
-            
-            if (!data || data.length === 0) {
-                throw new Error('No data available for the selected region and indicator');
-            }
-            
+            const data = await fetchWorldBankData(indicator, year, regions[selectedRegion].countries);
             setMapData(data);
-
             setTimeout(() => {
                 const canvas = canvasRef.current;
                 if (canvas) {
-                    try {
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                const url = URL.createObjectURL(blob);
-                                setDownloadUrl(url);
-                            }
-                        }, 'image/jpeg', 0.9);
-                    } catch (error) {
-                        console.warn('Download generation failed:', error);
-                    }
+                    canvas.toBlob(blob => {
+                        if (blob) setDownloadUrl(URL.createObjectURL(blob));
+                    }, 'image/jpeg', 0.9);
                 }
             }, 100);
         } catch (err) {
@@ -830,85 +620,48 @@ const WorldMap = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const clearSelection = () => {
-        setSelectedRegion(null);
-        setMapData(null);
-        setDownloadUrl('');
+        [setSelectedRegion, setMapData, setDownloadUrl, setError, setHoveredCountry].forEach(setter => setter(null));
+        setSelectedRegion('');
         setError('');
-        setHoveredCountry(null);
         resetView();
     };
 
     return (
         <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px', maxWidth: '1200px' }}>
             <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                        Indicator:
-                    </label>
-                    <select 
-                        value={indicator} 
-                        onChange={(e) => setIndicator(e.target.value)} 
-                        style={{ padding: '5px', margin: '5px', width: '250px' }}
-                    >
-                        {Object.entries(indicators).map(([code, name]) => (
-                            <option key={code} value={code}>{name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                        Year:
-                    </label>
-                    <select value={year} onChange={(e) => setYear(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
-                        {['2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
-                </div>
-                
-                <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                        Region:
-                    </label>
-                    <select value={selectedRegion || ''} onChange={(e) => handleRegionChange(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
-                    <option value="">Select a region...</option>
-                        {Object.entries(regions).map(([key, region]) => (
-                            <option key={key} value={key}>{region.name}</option>
-                        ))}                        
-                    </select>
-                </div>
-
-                <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>
-                        Show Labels:
-                    </label>
-                    <input 
-                        type="checkbox" 
-                        checked={showLabels} 
-                        onChange={(e) => setShowLabels(e.target.checked)}
-                        style={{ margin: '5px' }}
-                    />
-                    <small style={{ color: '#666', marginLeft: '10px' }}>
-                        Uncheck to reduce text overlap
-                    </small>
-                </div>
+                {[
+                    ['Indicator:', <select key="indicator" value={indicator} onChange={(e) => setIndicator(e.target.value)} style={{ padding: '5px', margin: '5px', width: '250px' }}>
+                        {Object.entries(indicators).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                    </select>],
+                    ['Year:', <select key="year" value={year} onChange={(e) => setYear(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
+                        {['2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>],
+                    ['Region:', <select key="region" value={selectedRegion || ''} onChange={(e) => handleRegionChange(e.target.value)} style={{ padding: '5px', margin: '5px', width: '100px' }}>
+                        <option value="">Select a region...</option>
+                        {Object.entries(regions).map(([key, region]) => <option key={key} value={key}>{region.name}</option>)}
+                    </select>],
+                    ['Show Labels:', <><input key="labels" type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} style={{ margin: '5px' }}/>
+                    <small style={{ color: '#777', marginLeft: '10px' }}>Uncheck to reduce text overlap</small></>]
+                ].map(([label, control], i) => (
+                    <div key={i} style={{ marginBottom: '15px' }}>
+                        <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>{label}</label>
+                        {control}
+                    </div>
+                ))}
 
                 <div>
-                    <button onClick={generateMap} disabled={loading || !selectedRegion} style={{ background: loading ? '#ccc' : !selectedRegion ? '#ccc' : '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: loading || !selectedRegion ? 'not-allowed' : 'pointer', margin: '5px' }}>
-                        {loading ? 'Generating...' : 'Generate Data Visualization'}
-                    </button>
-
-                    <button onClick={clearSelection} style={{ background: '#6c757d', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', margin: '5px' }}>
-                        Clear Selection
-                    </button>
-
-                    <button onClick={resetView} style={{ background: '#17a2b8', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', margin: '5px' }}>
-                        Reset View
-                    </button>
+                    {[
+                        ['Generate Data Visualization', generateMap, loading || !selectedRegion, loading ? '#ccc' : !selectedRegion ? '#ccc' : '#007bff'],
+                        ['Clear Selection', clearSelection, false, '#6c757d'],
+                        ['Reset View', resetView, false, '#17a2b8']
+                    ].map(([text, onClick, disabled, bg]) => (
+                        <button key={text} onClick={onClick} disabled={disabled} style={{ background: bg, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: disabled ? 'not-allowed' : 'pointer', margin: '5px' }}>
+                            {loading && text === 'Generate Data Visualization' ? 'Generating...' : text}
+                        </button>
+                    ))}
 
                     {downloadUrl && (
                         <a href={downloadUrl} download={`indicators-${selectedRegion}-${year}.jpg`} style={{ background: '#28a745', color: 'white', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none', margin: '5px', display: 'inline-block' }}>
@@ -928,7 +681,7 @@ const WorldMap = () => {
                 <canvas ref={canvasRef} width={800} height={500} onClick={handleCanvasClick} style={{ border: '2px solid #ddd', cursor: 'pointer', maxWidth: '100%', display: 'block', margin: '0 auto', borderRadius: '5px' }} />
                 <p style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
                     {!tilesLoaded ? 'Loading OpenStreetMap map...' : selectedRegion ? 
-                        `Viewing ${regions[selectedRegion].name} at ${mapView.zoom}x zoom - Click the region button again to deselect` : 
+                        `Viewing ${regions[selectedRegion].name} at ${mapView.zoom}x zoom` : 
                         'Click on region buttons in the map to select and zoom to a region'}
                 </p>
             </div>
