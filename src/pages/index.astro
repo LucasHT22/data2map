@@ -1,11 +1,26 @@
 ---
-import Layout from "../layouts/Layout.astro";
 import WorldMap from "../components/WorldMap";
+import WorldMapCountries from "../components/WorldMapCountries";
+import Layout from "../layouts/Layout.astro";
 ---
 
+<style>
+	main {
+		display: block;
+		margin-top: 50px;
+		margin-bottom: 50px;
+		justify-content: center;
+		text-align: center;
+	}
+</style>
 
-<Layout title="Data2Map">
+<Layout title="Home">
+	<main>
+		<h2>Welcome to</h2>
+		<h1><b><i>Data 2 Map</i></b></h1>
+	</main>
 	<main>
 		<WorldMap client:load />
+		<WorldMapCountries client:load />
 	</main>
 </Layout>
