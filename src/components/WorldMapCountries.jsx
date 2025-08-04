@@ -144,18 +144,6 @@ const WorldMap = () => {
 
     const resetView = () => setMapView({centerLat: 0, centerLng: 0, zoom: 1});
 
-    const handleRegionChange = (regionKey) => {
-        if (regionKey === '') {
-            setSelectedRegion(null);
-            resetView();
-        } else {
-            setSelectedRegion(regionKey);
-            zoomToRegion(regionKey);
-        }
-        [setMapData, setDownloadUrl, setError, setHoveredCountry].forEach(setter => setter(null));
-        setError('');
-    };
-
     const loadMapTiles = async () => {
         const tiles = {}, promises = [];
 
@@ -193,7 +181,7 @@ const WorldMap = () => {
 
     useEffect(() => { loadMapTiles(); }, []);
 
-    useEffect(() => { if (tilesLoaded) drawWorldMap(); }, [tilesLoaded, selectedRegion, mapData, mapView, hoveredCountry]);
+    useEffect(() => { if (tilesLoaded) drawWorldMap(); }, [tilesLoaded, selectedCountry, mapData, mapView, hoveredCountry]);
 
     const fetchWorldBankData = async (indicator, year) => {
         const url = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?date=${year}&format=json&per_page=300`;
@@ -379,8 +367,8 @@ const WorldMap = () => {
         ctx.fillStyle = '#333';
         ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.font = selectedRegion ? '16px Arial' : '14px Arial';
-        ctx.fillText(selectedRegion ? `Selected: ${regions[selectedRegion].name} (Zoom: ${mapView.zoom}x)` : 'Click on region buttons to select and zoom to a region', width/2, 55);
+        ctx.font = selectedCountry ? '16px Arial' : '14px Arial';
+        ctx.fillText(selectedCountry ? `Selected: ${selectedCountry} (Zoom: 4x)` : 'Click on region buttons to select and zoom to a region', width/2, 55);
     };
 
     const drawLegend = (ctx, min, max) => {
@@ -445,7 +433,7 @@ const WorldMap = () => {
         setError('');
         setHoveredCountry(null);
         try {
-            const data = await fetchWorldBankData(indicator, year, regions[selectedRegion].countries);
+            const data = await fetchWorldBankData(indicator, year);
             setMapData(data);
             setTimeout(() => {
                 const canvas = canvasRef.current;
@@ -463,8 +451,8 @@ const WorldMap = () => {
     }
 
     const clearSelection = () => {
-        [setSelectedRegion, setMapData, setDownloadUrl, setError, setHoveredCountry].forEach(setter => setter(null));
-        setSelectedRegion('');
+        [setSelectedCountry, setMapData, setDownloadUrl, setError, setHoveredCountry].forEach(setter => setter(null));
+        setSelectedCountry('');
         setError('');
         resetView();
     };
