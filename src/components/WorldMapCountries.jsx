@@ -368,7 +368,7 @@ const WorldMap = () => {
         ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
         ctx.font = selectedCountry ? '16px Arial' : '14px Arial';
-        ctx.fillText(selectedCountry ? `Selected: ${selectedCountry} (Zoom: 4x)` : 'Click on region buttons to select and zoom to a region', width/2, 55);
+        ctx.fillText(selectedCountry ? `Selected: ${selectedCountry} (Zoom: 4x)` : 'Click on Focus Country buttons to select and zoom to a region', width/2, 55);
     };
 
     const drawLegend = (ctx, min, max) => {
@@ -458,7 +458,7 @@ const WorldMap = () => {
     };
 
     return (
-        <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px', maxWidth: '1200px' }}>
+        <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px' }}>
             <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
                 <div style={{ marginBottom: '15px' }}>
                     <label style={{ display: 'inline-block', width: '120px', fontWeight: 'bold' }}>Indicator:</label>

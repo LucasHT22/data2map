@@ -630,7 +630,7 @@ const WorldMap = () => {
     };
 
     return (
-        <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px', maxWidth: '1200px' }}>
+        <div style={{ fontFamily: 'Arial, sans-serif', margin: '20px' }}>
             <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
                 {[
                     ['Indicator:', <select key="indicator" value={indicator} onChange={(e) => setIndicator(e.target.value)} style={{ padding: '5px', margin: '5px', width: '250px' }}>
