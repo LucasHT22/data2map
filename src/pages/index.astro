@@ -20,7 +20,13 @@ import Layout from "../layouts/Layout.astro";
 		<h1><b><i>Data 2 Map</i></b></h1>
 	</main>
 	<main>
+		<div>
+			<h2>Region:</h2>
+		</div>
 		<WorldMap client:load />
+		<div>
+			<h2>Countries:</h2>
+		</div>
 		<WorldMapCountries client:load />
 	</main>
 </Layout>
